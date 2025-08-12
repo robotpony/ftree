@@ -26,6 +26,10 @@ class GedcomParser:
             lines = f.readlines()
         
         self._parse_lines(lines)
+        
+        # Save final record
+        self._save_current_record()
+        
         return self.tree
     
     def _detect_encoding(self, path: Path) -> str:

@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 from .parser import GedcomParser
 from .renderer import AsciiRenderer
+from .family_formatter import FamilyFormatter
 
 
 def view_command(args):
@@ -21,12 +22,18 @@ def view_command(args):
         parser = GedcomParser()
         tree = parser.parse_file(filepath)
         
-        # Render the tree with optional flags
-        renderer = AsciiRenderer(tree)
-        output = renderer.render(
-            show_places=args.places,
-            show_marriage=args.marriage
-        )
+        # Choose output format
+        if args.grouped:
+            # Use family-grouped format
+            formatter = FamilyFormatter(tree)
+            output = formatter.format_grouped_families()
+        else:
+            # Use traditional tree format
+            renderer = AsciiRenderer(tree)
+            output = renderer.render(
+                show_places=args.places,
+                show_marriage=args.marriage
+            )
         
         print(output)
         return 0
@@ -105,6 +112,8 @@ def main():
                            help='Include birth/death places')
     view_parser.add_argument('--marriage', action='store_true',
                            help='Include marriage dates')
+    view_parser.add_argument('--grouped', action='store_true',
+                           help='Group families together with sorted children')
     view_parser.set_defaults(func=view_command)
     
     # Check command

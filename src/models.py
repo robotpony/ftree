@@ -1,6 +1,8 @@
 """Data models for family tree representation."""
 
 from typing import Optional, List, Dict
+from datetime import datetime
+import re
 
 
 class Individual:
@@ -44,9 +46,18 @@ class Individual:
         """Format a date string for display."""
         if not date_str:
             return ""
-        # For now, return the full date as-is
-        # Can be customized later for different formats
+        # Extract year from common GEDCOM date formats
+        year_match = re.search(r'\b(\d{4})\b', date_str)
+        if year_match:
+            return year_match.group(1)
         return date_str
+    
+    def get_birth_year(self) -> Optional[int]:
+        """Extract birth year as integer for sorting."""
+        if not self.birth_date:
+            return None
+        year_match = re.search(r'\b(\d{4})\b', self.birth_date)
+        return int(year_match.group(1)) if year_match else None
     
     def __repr__(self) -> str:
         return f"Individual({self.id}, {self.name})"
@@ -99,3 +110,37 @@ class FamilyTree:
             if not individual.family_child:
                 roots.append(individual)
         return roots
+    
+    def get_family_group(self, family_id: str) -> Dict:
+        """Get a complete family group with all members."""
+        family = self.get_family(family_id)
+        if not family:
+            return {}
+        
+        husband = self.get_individual(family.husband_id) if family.husband_id else None
+        wife = self.get_individual(family.wife_id) if family.wife_id else None
+        
+        children = []
+        for child_id in family.children_ids:
+            child = self.get_individual(child_id)
+            if child:
+                children.append(child)
+        
+        # Sort children by birth year
+        children.sort(key=lambda c: c.get_birth_year() or 9999)
+        
+        return {
+            'family': family,
+            'husband': husband,
+            'wife': wife,
+            'children': children
+        }
+    
+    def get_all_family_groups(self) -> List[Dict]:
+        """Get all families as grouped units."""
+        groups = []
+        for family_id in self.families.keys():
+            group = self.get_family_group(family_id)
+            if group:
+                groups.append(group)
+        return groups
