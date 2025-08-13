@@ -43,3 +43,20 @@ The following standard GEDCOM tags are not yet implemented and could be added in
 3. **P3**: Additional life events (`BAPM`, `BURI`, `OCCU`, `RESI`)
 4. **P4**: Repository and publication data (`REPO`, `AUTH`, `PUBL`)
 5. **P5**: Attributes and less common events (`RELI`, `TITL`, `ENGA`, `DIV`)
+
+## HTML Renderer Enhancements
+
+### Mobile/Touch Support (Future Task)
+- Touch-friendly controls for expanding/collapsing family branches
+- Responsive grid layouts for different screen sizes
+- Swipe gestures for navigation
+- Optimized touch target sizes for person cards
+- Mobile-specific CSS improvements for better readability
+
+### Additional Features to Consider
+- Zoom and pan functionality for large family trees
+- Export options (PNG, PDF) from HTML view
+- Print-friendly styling improvements
+- Accessibility features (ARIA labels, keyboard navigation)
+- Additional CSS themes (dark mode, high contrast)
+- Performance optimizations for very large trees

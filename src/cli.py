@@ -6,6 +6,7 @@ from pathlib import Path
 from .parser import GedcomParser
 from .renderer import AsciiRenderer
 from .family_formatter import FamilyFormatter
+from .html_renderer import HtmlRenderer
 
 
 def view_command(args):
@@ -92,8 +93,49 @@ def check_command(args):
 
 def export_command(args):
     """Handle the export command."""
-    print("Export functionality not yet implemented")
-    return 1
+    filepath = args.filename
+    
+    # Check if file exists
+    if not Path(filepath).exists():
+        print(f"Error: File '{filepath}' not found", file=sys.stderr)
+        return 1
+    
+    try:
+        # Parse the GEDCOM file
+        parser = GedcomParser()
+        tree = parser.parse_file(filepath)
+        
+        # Generate output based on format
+        if args.format == 'html':
+            renderer = HtmlRenderer(tree)
+            title = f"Family Tree - {Path(filepath).stem}"
+            output = renderer.render(
+                theme=args.theme,
+                include_places=not args.no_places,
+                include_photos=not args.no_photos,
+                title=title
+            )
+            
+            # Determine output filename
+            output_path = Path(filepath).with_suffix('.html')
+            if hasattr(args, 'output') and args.output:
+                output_path = Path(args.output)
+            
+            # Write HTML file
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(output)
+            
+            print(f"HTML export saved to: {output_path}")
+            
+        elif args.format == 'svg':
+            print("SVG export not yet implemented")
+            return 1
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error exporting file: {e}", file=sys.stderr)
+        return 1
 
 
 def main():
@@ -125,7 +167,14 @@ def main():
     export_parser = subparsers.add_parser('export', help='Export to various formats')
     export_parser.add_argument('filename', help='GEDCOM file to export')
     export_parser.add_argument('--format', choices=['svg', 'html'], 
-                              default='svg', help='Output format')
+                              default='html', help='Output format')
+    export_parser.add_argument('--output', '-o', help='Output file path')
+    export_parser.add_argument('--theme', choices=['default'], default='default',
+                              help='CSS theme for HTML output')
+    export_parser.add_argument('--no-places', action='store_true',
+                              help='Exclude birth/death places from HTML output')
+    export_parser.add_argument('--no-photos', action='store_true',
+                              help='Exclude photos from HTML output')
     export_parser.set_defaults(func=export_command)
     
     # Parse arguments
