@@ -71,7 +71,7 @@ class HtmlRenderer:
             <div class="ftree-controls">
                 <button @click="expandAll()">Expand All</button>
                 <button @click="collapseAll()">Collapse All</button>
-                <input type="search" x-model="searchQuery" @input="filterPeople()" placeholder="Search names..." id="search-box">
+                <input type="search" x-model="searchQuery" @input="filterPeople()" placeholder="Search names, dates, occupation, education..." id="search-box">
                 <select @change="filterByGeneration($event.target.value)">
                     <option value="">All Generations</option>
                     <option value="1">Generation 1</option>
@@ -137,43 +137,51 @@ class HtmlRenderer:
         for family in root_families:
             family_tree = self._render_family_tree(family)
             if family_tree:
-                content_parts.append(f'<div class="family-tree">{family_tree}</div>')
+                content_parts.append(f'            <div class="family-tree">\n{family_tree}\n            </div>')
         
         # Render any remaining unconnected individuals
         orphans = self._find_orphaned_individuals()
         if orphans:
-            orphan_content = '<div class="orphaned-individuals">'
-            orphan_content += '<h2>Unconnected Individuals</h2>'
-            orphan_content += '<ul class="orphan-list">'
+            orphan_lines = []
+            orphan_lines.append('            <div class="orphaned-individuals">')
+            orphan_lines.append('                <h2>Unconnected Individuals</h2>')
+            orphan_lines.append('                <ul class="orphan-list">')
             for individual in orphans:
-                orphan_content += f'<li>{self._render_person_card(individual)}</li>'
-            orphan_content += '</ul></div>'
-            content_parts.append(orphan_content)
+                orphan_lines.append(f'                    <li>\n{self._render_person_card(individual, indent=24)}\n                    </li>')
+            orphan_lines.append('                </ul>')
+            orphan_lines.append('            </div>')
+            content_parts.append('\n'.join(orphan_lines))
         
         return '\n'.join(content_parts)
     
-    def _render_family_tree(self, family: Family, generation: int = 1) -> str:
+    def _render_family_tree(self, family: Family, generation: int = 1, indent: int = 16) -> str:
         """Render a family and their descendants as HTML tree."""
         if not family:
             return ""
         
-        family_html = f'<div class="family-unit" data-family-id="{html.escape(family.id)}" data-generation="{generation}">'
+        ind = ' ' * indent
+        lines = []
+        lines.append(f'{ind}<div class="family-unit" data-family-id="{html.escape(family.id)}" data-generation="{generation}">')
         
         # Parents section
-        parents_html = self._render_parents(family, generation)
+        parents_html = self._render_parents(family, generation, indent + 4)
         if parents_html:
-            family_html += f'<div class="parents">{parents_html}</div>'
+            lines.append(f'{ind}    <div class="parents">')
+            lines.append(parents_html)
+            lines.append(f'{ind}    </div>')
         
         # Children section
-        children_html = self._render_children(family, generation)
+        children_html = self._render_children(family, generation, indent + 4)
         if children_html:
-            family_html += f'<div class="children">{children_html}</div>'
+            lines.append(f'{ind}    <div class="children">')
+            lines.append(children_html)
+            lines.append(f'{ind}    </div>')
         
-        family_html += '</div>'
+        lines.append(f'{ind}</div>')
         
-        return family_html
+        return '\n'.join(lines)
     
-    def _render_parents(self, family: Family, generation: int = 1) -> str:
+    def _render_parents(self, family: Family, generation: int = 1, indent: int = 20) -> str:
         """Render the parent couple."""
         parents = []
         
@@ -181,13 +189,13 @@ class HtmlRenderer:
             if family.husband_id:
                 husband = self.tree.get_individual(family.husband_id)
                 if husband and husband.id not in self.rendered_individuals:
-                    parents.append(self._render_person_card(husband, "husband", generation))
+                    parents.append(self._render_person_card(husband, "husband", generation, indent + 8))
                     self.rendered_individuals.add(husband.id)
             
             if family.wife_id:
                 wife = self.tree.get_individual(family.wife_id)
                 if wife and wife.id not in self.rendered_individuals:
-                    parents.append(self._render_person_card(wife, "wife", generation))
+                    parents.append(self._render_person_card(wife, "wife", generation, indent + 8))
                     self.rendered_individuals.add(wife.id)
         except (AttributeError, KeyError) as e:
             # Handle missing or corrupt individual data
@@ -200,30 +208,34 @@ class HtmlRenderer:
         has_children = bool(family.children_ids)
         couple_class = "couple" if has_children else "couple no-children"
         
-        parents_html = f'<div class="{couple_class}" data-family-id="{html.escape(family.id)}">'
-        parents_html += '\n'.join(parents)
+        ind = ' ' * indent
+        lines = []
+        lines.append(f'{ind}<div class="{couple_class}" data-family-id="{html.escape(family.id)}">')
+        for parent_html in parents:
+            lines.append(parent_html)
         
         # Add marriage info
         if family.marriage_date or family.marriage_place:
-            marriage_info = '<div class="marriage-info">'
+            lines.append(f'{ind}    <div class="marriage-info">')
             if family.marriage_date:
-                marriage_info += f'<span class="marriage-date">m. {html.escape(family.marriage_date)}</span>'
+                lines.append(f'{ind}        <span class="marriage-date">m. {html.escape(family.marriage_date)}</span>')
             if family.marriage_place:
-                marriage_info += f'<span class="marriage-place">in {html.escape(family.marriage_place)}</span>'
-            marriage_info += '</div>'
-            parents_html += marriage_info
+                lines.append(f'{ind}        <span class="marriage-place">in {html.escape(family.marriage_place)}</span>')
+            lines.append(f'{ind}    </div>')
         
-        parents_html += '</div>'
-        return parents_html
+        lines.append(f'{ind}</div>')
+        return '\n'.join(lines)
     
-    def _render_children(self, family: Family, generation: int = 1) -> str:
+    def _render_children(self, family: Family, generation: int = 1, indent: int = 20) -> str:
         """Render the children of a family."""
         if not family.children_ids:
             return ""
         
-        children_html = f'<div class="children-container" data-parent-family="{html.escape(family.id)}">'
-        children_html += f'<button class="toggle-children" data-expanded="true" data-family-id="{html.escape(family.id)}">▼ Children</button>'
-        children_html += '<div class="children-list">'
+        ind = ' ' * indent
+        lines = []
+        lines.append(f'{ind}<div class="children-container" data-parent-family="{html.escape(family.id)}">')
+        lines.append(f'{ind}    <button class="toggle-children" data-expanded="true" data-family-id="{html.escape(family.id)}">▼ Children</button>')
+        lines.append(f'{ind}    <div class="children-list">')
         
         # Sort children by birth year
         children = []
@@ -242,7 +254,8 @@ class HtmlRenderer:
         
         for child in children:
             if child.id not in self.rendered_individuals:
-                child_html = f'<div class="child-branch" data-child-id="{html.escape(child.id)}">{self._render_person_card(child, "child", generation + 1)}'
+                lines.append(f'{ind}        <div class="child-branch" data-child-id="{html.escape(child.id)}">')
+                lines.append(self._render_person_card(child, "child", generation + 1, indent + 12))
                 self.rendered_individuals.add(child.id)
                 
                 # Render child's own families
@@ -250,21 +263,25 @@ class HtmlRenderer:
                     for spouse_family_id in child.family_spouse:
                         spouse_family = self.tree.get_family(spouse_family_id)
                         if spouse_family:
-                            child_family_tree = self._render_descendant_family(spouse_family, child, generation + 1)
+                            child_family_tree = self._render_descendant_family(spouse_family, child, generation + 1, indent + 12)
                             if child_family_tree:
-                                child_html += f'<div class="descendant-family">{child_family_tree}</div>'
+                                lines.append(f'{ind}            <div class="descendant-family">')
+                                lines.append(child_family_tree)
+                                lines.append(f'{ind}            </div>')
                 except (AttributeError, KeyError, TypeError) as e:
                     print(f"Warning: Error rendering child's families for {child.id}: {e}")
                 
-                child_html += '</div>'
-                children_html += child_html
+                lines.append(f'{ind}        </div>')
         
-        children_html += '</div></div>'
-        return children_html
+        lines.append(f'{ind}    </div>')
+        lines.append(f'{ind}</div>')
+        return '\n'.join(lines)
     
-    def _render_descendant_family(self, family: Family, known_parent: Individual, generation: int = 1) -> str:
+    def _render_descendant_family(self, family: Family, known_parent: Individual, generation: int = 1, indent: int = 20) -> str:
         """Render a family where we already know one parent."""
-        family_html = f'<div class="descendant-unit" data-family-id="{html.escape(family.id)}" data-generation="{generation}">'
+        ind = ' ' * indent
+        lines = []
+        lines.append(f'{ind}<div class="descendant-unit" data-family-id="{html.escape(family.id)}" data-generation="{generation}">')
         
         # Find and render spouse
         spouse_id = None
@@ -278,23 +295,26 @@ class HtmlRenderer:
                 spouse = self.tree.get_individual(spouse_id)
                 if spouse:
                     spouse_role = "wife" if family.husband_id == known_parent.id else "husband"
-                    family_html += f'<div class="spouse">{self._render_person_card(spouse, spouse_role, generation)}</div>'
+                    lines.append(f'{ind}    <div class="spouse">')
+                    lines.append(self._render_person_card(spouse, spouse_role, generation, indent + 8))
+                    lines.append(f'{ind}    </div>')
                     self.rendered_individuals.add(spouse_id)
             except (AttributeError, KeyError) as e:
                 print(f"Warning: Could not find spouse {spouse_id}: {e}")
         
         # Render children
-        children_html = self._render_children(family, generation)
+        children_html = self._render_children(family, generation, indent + 4)
         if children_html:
-            family_html += children_html
+            lines.append(children_html)
         
-        family_html += '</div>'
-        return family_html
+        lines.append(f'{ind}</div>')
+        return '\n'.join(lines)
     
-    def _render_person_card(self, individual: Individual, role: str = "", generation: int = 0) -> str:
+    def _render_person_card(self, individual: Individual, role: str = "", generation: int = 0, indent: int = 0) -> str:
         """Render an individual as an HTML card."""
         if not individual:
-            return '<div class="person-card error">Missing Individual</div>'
+            ind = ' ' * indent
+            return f'{ind}<div class="person-card error">Missing Individual</div>'
         
         card_classes = f"person-card {role}".strip()
         
@@ -323,57 +343,71 @@ class HtmlRenderer:
         religion = getattr(individual, 'religion', '') or ''
         education = getattr(individual, 'education', '') or ''
         notes = getattr(individual, 'notes', [])
-        notes_text = f"{len(notes)} notes" if notes else ''
+        notes_text = f"{len(notes)} note{'s' if len(notes) != 1 else ''}" if notes else ''
+        notes_preview = notes[0][:50] + "..." if notes and notes[0] and len(notes[0]) > 50 else (notes[0] if notes and notes[0] else '')
         
-        card_html = f'''<div class="{card_classes}" 
-            data-person-id="{html.escape(individual.id)}"
-            data-person-name="{name}"
-            data-birth-year="{birth_year}"
-            data-death-year="{death_year}"
-            data-gender="{gender}"
-            data-role="{role}"
-            data-generation="{generation}"
-            data-occupation="{html.escape(occupation)}"
-            data-religion="{html.escape(religion)}"
-            data-education="{html.escape(education)}"
-            data-notes="{html.escape(notes_text)}"
-            @click="showPersonDetails($el)">'''
+        ind = ' ' * indent
+        lines = []
+        lines.append(f'{ind}<div class="{card_classes}"')
+        lines.append(f'{ind}    data-person-id="{html.escape(individual.id)}"')
+        lines.append(f'{ind}    data-person-name="{name}"')
+        lines.append(f'{ind}    data-birth-year="{birth_year}"')
+        lines.append(f'{ind}    data-death-year="{death_year}"')
+        lines.append(f'{ind}    data-gender="{gender}"')
+        lines.append(f'{ind}    data-role="{role}"')
+        lines.append(f'{ind}    data-generation="{generation}"')
+        lines.append(f'{ind}    data-occupation="{html.escape(occupation)}"')
+        lines.append(f'{ind}    data-religion="{html.escape(religion)}"')
+        lines.append(f'{ind}    data-education="{html.escape(education)}"')
+        lines.append(f'{ind}    data-notes="{html.escape(notes_text)}"')
+        lines.append(f'{ind}    @click="showPersonDetails($el)">')
         
         # Photo if available
         photo_html = self._render_person_photo(individual)
         if photo_html:
-            card_html += photo_html
+            lines.append(f'{ind}    {photo_html}')
         
         # Generation badge
         if generation > 0:
-            card_html += f'<span class="generation-badge">Gen {generation}</span>'
+            lines.append(f'{ind}    <span class="generation-badge">Gen {generation}</span>')
         
         # Name
-        card_html += f'<h3 class="person-name">{name}</h3>'
+        lines.append(f'{ind}    <h3 class="person-name">{name}</h3>')
         
         # Dates
         dates_html = self._render_person_dates(individual)
         if dates_html:
-            card_html += dates_html
+            lines.append(f'{ind}    {dates_html}')
         
         # Places (if enabled)
         if self.include_places:
             places_html = self._render_person_places(individual)
             if places_html:
-                card_html += places_html
+                lines.append(f'{ind}    {places_html}')
         
-        # Additional metadata (occupation, education, religion)
+        # Additional metadata section
+        metadata_parts = []
         if occupation:
-            card_html += f'<div class="person-occupation"><small>Occupation: {html.escape(occupation)}</small></div>'
+            metadata_parts.append(f'<strong>📋</strong> {html.escape(occupation)}')
         if education:
-            card_html += f'<div class="person-education"><small>Education: {html.escape(education)}</small></div>'
+            metadata_parts.append(f'<strong>🎓</strong> {html.escape(education)}')
         if religion:
-            card_html += f'<div class="person-religion"><small>Religion: {html.escape(religion)}</small></div>'
-        if notes_text:
-            card_html += f'<div class="person-notes-indicator"><small>{html.escape(notes_text)}</small></div>'
+            metadata_parts.append(f'<strong>⛪</strong> {html.escape(religion)}')
         
-        card_html += '</div>'
-        return card_html
+        if metadata_parts:
+            lines.append(f'{ind}    <div class="person-metadata">')
+            for part in metadata_parts:
+                lines.append(f'{ind}        <div class="metadata-item"><small>{part}</small></div>')
+            lines.append(f'{ind}    </div>')
+        
+        # Notes preview
+        if notes_preview:
+            lines.append(f'{ind}    <div class="person-notes-preview"><small><strong>📝</strong> {html.escape(notes_preview)}</small></div>')
+        elif notes_text:
+            lines.append(f'{ind}    <div class="person-notes-indicator"><small><strong>📝</strong> {html.escape(notes_text)}</small></div>')
+        
+        lines.append(f'{ind}</div>')
+        return '\n'.join(lines)
     
     def _render_person_photo(self, individual: Individual) -> str:
         """Render person's photo if available."""
@@ -592,13 +626,31 @@ class HtmlRenderer:
             bottom: -15px;
             left: 50%;
             transform: translateX(-50%);
-            width: 2px;
+            width: 3px;
             height: 15px;
-            background-color: var(--border-color);
+            background-color: var(--secondary-color);
+            border-radius: 2px;
         }
         
         .couple.no-children::after {
             display: none;
+        }
+        
+        /* Marriage connector line between spouses */
+        .couple::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 25%;
+            right: 25%;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                var(--secondary-color) 20%, 
+                var(--secondary-color) 80%, 
+                transparent 100%);
+            transform: translateY(-50%);
+            z-index: -1;
         }
         
         .marriage-info {
@@ -698,22 +750,40 @@ class HtmlRenderer:
         }
         
         /* Additional metadata fields */
-        .person-occupation,
-        .person-education,
-        .person-religion,
-        .person-notes-indicator {
-            margin-top: 4px;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            line-height: 1.3;
+        .person-metadata {
+            margin-top: 8px;
+            padding: 6px 0;
+            border-top: 1px solid rgba(52, 152, 219, 0.2);
         }
         
-        .person-occupation small,
-        .person-education small,
-        .person-religion small,
-        .person-notes-indicator small {
-            display: block;
-            padding: 2px 0;
+        .metadata-item {
+            margin: 3px 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        
+        .metadata-item strong {
+            margin-right: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .person-notes-preview,
+        .person-notes-indicator {
+            margin-top: 6px;
+            padding: 4px 8px;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            line-height: 1.3;
+            border-left: 3px solid var(--secondary-color);
+        }
+        
+        .person-notes-preview strong,
+        .person-notes-indicator strong {
+            margin-right: 4px;
+            color: var(--secondary-color);
         }
         
         /* Children sections */
@@ -730,9 +800,14 @@ class HtmlRenderer:
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
-            max-width: 400px;
-            height: 2px;
-            background-color: var(--border-color);
+            max-width: 500px;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                var(--secondary-color) 10%, 
+                var(--secondary-color) 90%, 
+                transparent 100%);
+            border-radius: 2px;
         }
         
         .toggle-children {
@@ -772,9 +847,24 @@ class HtmlRenderer:
             top: -20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 2px;
+            width: 3px;
             height: 20px;
-            background-color: var(--border-color);
+            background-color: var(--secondary-color);
+            border-radius: 0 0 2px 2px;
+        }
+        
+        /* Add horizontal connector dot at junction points */
+        .child-branch::after {
+            content: '';
+            position: absolute;
+            top: -23px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            border: 2px solid var(--background-color);
         }
         
         .descendant-family {
@@ -1072,37 +1162,98 @@ function familyTreeApp() {
         },
         
         filterPeople() {
-            const query = this.searchQuery.toLowerCase();
+            const query = this.searchQuery.toLowerCase().trim();
+            
+            if (query === '') {
+                // Show all cards and clear highlights
+                document.querySelectorAll('.person-card').forEach(card => {
+                    card.style.display = '';
+                    const nameElement = card.querySelector('.person-name');
+                    if (nameElement) {
+                        nameElement.innerHTML = nameElement.textContent;
+                    }
+                });
+                return;
+            }
+            
             document.querySelectorAll('.person-card').forEach(card => {
-                const name = card.dataset.personName.toLowerCase();
-                const birthYear = card.dataset.birthYear;
-                const deathYear = card.dataset.deathYear;
+                const name = (card.dataset.personName || '').toLowerCase();
+                const birthYear = (card.dataset.birthYear || '').toLowerCase();
+                const deathYear = (card.dataset.deathYear || '').toLowerCase();
+                const occupation = (card.dataset.occupation || '').toLowerCase();
+                const education = (card.dataset.education || '').toLowerCase();
+                const religion = (card.dataset.religion || '').toLowerCase();
+                const notes = (card.dataset.notes || '').toLowerCase();
                 
-                // Search in name and years
+                // Search in all available fields
                 const match = name.includes(query) || 
                              birthYear.includes(query) || 
-                             deathYear.includes(query);
+                             deathYear.includes(query) ||
+                             occupation.includes(query) ||
+                             education.includes(query) ||
+                             religion.includes(query) ||
+                             notes.includes(query);
                 
-                // Show/hide card
-                card.style.display = match || query === '' ? '' : 'none';
+                // Show/hide card and its parent containers
+                const cardContainer = card.closest('.child-branch') || card.closest('.spouse') || card.parentElement;
+                if (match) {
+                    card.style.display = '';
+                    if (cardContainer) cardContainer.style.display = '';
+                    
+                    // Show parent family containers
+                    const familyUnit = card.closest('.family-unit, .descendant-unit');
+                    if (familyUnit) familyUnit.style.display = '';
+                    
+                    const familyTree = card.closest('.family-tree');
+                    if (familyTree) familyTree.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
                 
                 // Highlight matches in name
                 const nameElement = card.querySelector('.person-name');
-                if (query && match && name.includes(query)) {
-                    const regex = new RegExp(`(${query})`, 'gi');
-                    const originalText = nameElement.textContent;
-                    nameElement.innerHTML = originalText.replace(regex, '<mark>$1</mark>');
-                } else {
-                    nameElement.innerHTML = nameElement.textContent;
+                if (nameElement) {
+                    if (match && name.includes(query)) {
+                        const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+                        const originalText = nameElement.textContent;
+                        nameElement.innerHTML = originalText.replace(regex, '<mark>$1</mark>');
+                    } else {
+                        nameElement.innerHTML = nameElement.textContent;
+                    }
                 }
             });
         },
         
+        escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        },
+        
         filterByGeneration(generation) {
             this.generationFilter = generation;
-            // This would require generation data in the cards
-            // For now, it's a placeholder for future enhancement
-            console.log('Filter by generation:', generation);
+            
+            document.querySelectorAll('.person-card').forEach(card => {
+                const cardGeneration = card.dataset.generation;
+                
+                if (generation === '' || cardGeneration === generation) {
+                    card.style.display = '';
+                    // Show parent containers
+                    const cardContainer = card.closest('.child-branch') || card.closest('.spouse') || card.parentElement;
+                    if (cardContainer) cardContainer.style.display = '';
+                    
+                    const familyUnit = card.closest('.family-unit, .descendant-unit');
+                    if (familyUnit) familyUnit.style.display = '';
+                    
+                    const familyTree = card.closest('.family-tree');
+                    if (familyTree) familyTree.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Also apply current search filter if active
+            if (this.searchQuery.trim() !== '') {
+                this.filterPeople();
+            }
         },
         
         showPersonDetails(element) {
