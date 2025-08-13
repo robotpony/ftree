@@ -60,3 +60,39 @@ The following standard GEDCOM tags are not yet implemented and could be added in
 - Accessibility features (ARIA labels, keyboard navigation)
 - Additional CSS themes (dark mode, high contrast)
 - Performance optimizations for very large trees
+
+## Theme System (Future Implementation)
+
+### Design Goals
+- Support multiple visual themes for different preferences
+- Enable easy theme switching without regenerating HTML
+- Maintain readability and accessibility across all themes
+
+### Planned Themes
+1. **Default** - Current light theme with blue/gray colors
+2. **Dark Mode** - Dark background with light text for low-light viewing
+3. **High Contrast** - Black and white with strong borders for accessibility
+4. **Vintage** - Sepia tones mimicking old family photos
+5. **Modern** - Flat design with bold colors and minimal shadows
+6. **Print** - Optimized for black and white printing
+
+### Implementation Strategy
+- CSS custom properties (variables) for easy color theming
+- Theme switcher in HTML header controls
+- Save theme preference in localStorage
+- Separate CSS classes for each theme
+- Consider user's system preference (prefers-color-scheme)
+
+### Color Customization Options
+- Primary color (headers, borders)
+- Secondary color (buttons, links)
+- Accent colors for gender indicators
+- Background colors for cards and containers
+- Text colors with proper contrast ratios
+- Shadow and border styles per theme
+
+### Technical Approach
+- Keep CSS embedded for self-contained files
+- Use data attributes to apply theme-specific styles
+- Ensure all themes meet WCAG accessibility standards
+- Test themes with various genealogy data sizes
