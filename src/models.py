@@ -144,3 +144,112 @@ class FamilyTree:
             if group:
                 groups.append(group)
         return groups
+    
+    def get_field_values(self, field_name: str, unique: bool = True) -> List[str]:
+        """Extract values for a specific field from all individuals and families."""
+        values = []
+        
+        # Individual fields
+        if field_name in ['given_name', 'surname', 'sex', 'birth_date', 'birth_place', 
+                          'death_date', 'death_place']:
+            for individual in self.individuals.values():
+                value = getattr(individual, field_name, None)
+                if value:
+                    values.append(value)
+        
+        # Family fields
+        elif field_name in ['marriage_date', 'marriage_place']:
+            for family in self.families.values():
+                value = getattr(family, field_name, None)
+                if value:
+                    values.append(value)
+        
+        # Special field: full names
+        elif field_name == 'name':
+            for individual in self.individuals.values():
+                if individual.name and individual.name != individual.id:
+                    values.append(individual.name)
+        
+        if unique:
+            return sorted(list(set(values)))
+        return values
+    
+    def get_all_places(self, unique: bool = True) -> List[str]:
+        """Get all places (birth, death, marriage) from the tree."""
+        places = []
+        
+        for individual in self.individuals.values():
+            if individual.birth_place:
+                places.append(individual.birth_place)
+            if individual.death_place:
+                places.append(individual.death_place)
+        
+        for family in self.families.values():
+            if family.marriage_place:
+                places.append(family.marriage_place)
+        
+        if unique:
+            return sorted(list(set(places)))
+        return places
+    
+    def get_all_dates(self, unique: bool = True) -> List[str]:
+        """Get all dates (birth, death, marriage) from the tree."""
+        dates = []
+        
+        for individual in self.individuals.values():
+            if individual.birth_date:
+                dates.append(individual.birth_date)
+            if individual.death_date:
+                dates.append(individual.death_date)
+        
+        for family in self.families.values():
+            if family.marriage_date:
+                dates.append(family.marriage_date)
+        
+        if unique:
+            return sorted(list(set(dates)))
+        return dates
+    
+    def get_field_with_individuals(self, field_name: str) -> Dict[str, List[Individual]]:
+        """Get field values grouped with the individuals who have them."""
+        grouped = {}
+        
+        for individual in self.individuals.values():
+            value = None
+            
+            if field_name in ['given_name', 'surname', 'sex', 'birth_date', 'birth_place',
+                             'death_date', 'death_place']:
+                value = getattr(individual, field_name, None)
+            elif field_name == 'name':
+                value = individual.name if individual.name != individual.id else None
+            elif field_name == 'places':
+                # Add individual to all their associated places
+                for place in [individual.birth_place, individual.death_place]:
+                    if place:
+                        if place not in grouped:
+                            grouped[place] = []
+                        grouped[place].append(individual)
+                continue
+            
+            if value:
+                if value not in grouped:
+                    grouped[value] = []
+                grouped[value].append(individual)
+        
+        # Handle family fields
+        if field_name == 'marriage_place':
+            for family in self.families.values():
+                if family.marriage_place:
+                    if family.marriage_place not in grouped:
+                        grouped[family.marriage_place] = []
+                    # Add both spouses to the marriage place
+                    if family.husband_id:
+                        husband = self.get_individual(family.husband_id)
+                        if husband:
+                            grouped[family.marriage_place].append(husband)
+                    if family.wife_id:
+                        wife = self.get_individual(family.wife_id)
+                        if wife:
+                            grouped[family.marriage_place].append(wife)
+        
+        return grouped

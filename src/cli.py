@@ -138,6 +138,121 @@ def export_command(args):
         return 1
 
 
+def list_command(args):
+    """Handle the list command for extracting and listing field values."""
+    filepath = args.filename
+    
+    # Check if file exists
+    if not Path(filepath).exists():
+        print(f"Error: File '{filepath}' not found", file=sys.stderr)
+        return 1
+    
+    try:
+        # Parse the GEDCOM file
+        parser = GedcomParser()
+        tree = parser.parse_file(filepath)
+        
+        # Determine which field(s) to extract
+        field_alias = args.field_alias if hasattr(args, 'field_alias') else None
+        field_name = args.field if hasattr(args, 'field') else None
+        
+        # Predefined field aliases
+        aliases = {
+            'cities': 'places',
+            'places': 'places',
+            'names': 'name',
+            'surnames': 'surname',
+            'dates': 'dates',
+            'birth_dates': 'birth_date',
+            'death_dates': 'death_date',
+            'birth_places': 'birth_place',
+            'death_places': 'death_place',
+            'marriage_dates': 'marriage_date',
+            'marriage_places': 'marriage_place'
+        }
+        
+        # Get values based on field selection
+        values = []
+        grouped_data = {}
+        
+        if field_alias:
+            if field_alias in aliases:
+                field_key = aliases[field_alias]
+                
+                if field_key == 'places':
+                    values = tree.get_all_places(unique=not args.all)
+                    if args.group:
+                        grouped_data = tree.get_field_with_individuals('places')
+                elif field_key == 'dates':
+                    values = tree.get_all_dates(unique=not args.all)
+                else:
+                    values = tree.get_field_values(field_key, unique=not args.all)
+                    if args.group:
+                        grouped_data = tree.get_field_with_individuals(field_key)
+            else:
+                print(f"Error: Unknown field alias '{field_alias}'", file=sys.stderr)
+                print(f"Available aliases: {', '.join(sorted(aliases.keys()))}", file=sys.stderr)
+                return 1
+        elif field_name:
+            values = tree.get_field_values(field_name, unique=not args.all)
+            if args.group:
+                grouped_data = tree.get_field_with_individuals(field_name)
+        else:
+            # Default to listing all places
+            values = tree.get_all_places(unique=not args.all)
+            if args.group:
+                grouped_data = tree.get_field_with_individuals('places')
+        
+        # Format and display output
+        if args.count:
+            # Show counts for each unique value
+            from collections import Counter
+            if args.all:
+                # Count all occurrences
+                counter = Counter(values)
+            else:
+                # Count unique values (already deduplicated)
+                counter = Counter(values)
+            
+            for value, count in sorted(counter.items()):
+                if args.all or count > 1:
+                    print(f"{value}: {count}")
+                else:
+                    print(value)
+        elif args.group:
+            # Group individuals by field value
+            for value in sorted(grouped_data.keys()):
+                individuals = grouped_data[value]
+                # Remove duplicates from individuals list
+                unique_individuals = []
+                seen_ids = set()
+                for ind in individuals:
+                    if ind.id not in seen_ids:
+                        unique_individuals.append(ind)
+                        seen_ids.add(ind.id)
+                
+                names = [ind.name for ind in unique_individuals]
+                print(f"{value}:")
+                for name in sorted(names):
+                    print(f"  - {name}")
+        else:
+            # Simple list output
+            for value in values:
+                print(value)
+        
+        # Summary statistics
+        if args.stats:
+            print(f"\nTotal unique values: {len(set(values))}")
+            if args.all:
+                print(f"Total occurrences: {len(values)}")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error listing fields: {e}", file=sys.stderr)
+        return 1
+
+
 def main():
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
@@ -176,6 +291,23 @@ def main():
     export_parser.add_argument('--no-photos', action='store_true',
                               help='Exclude photos from HTML output')
     export_parser.set_defaults(func=export_command)
+    
+    # List command
+    list_parser = subparsers.add_parser('list', help='List and filter field values from the tree')
+    list_parser.add_argument('filename', help='GEDCOM file to analyze')
+    list_parser.add_argument('field_alias', nargs='?', 
+                            help='Field to list (cities, places, names, surnames, dates, etc.)')
+    list_parser.add_argument('--field', '-f', 
+                            help='Specific field name (e.g., birth_place, surname)')
+    list_parser.add_argument('--count', '-c', action='store_true',
+                            help='Show count for each value')
+    list_parser.add_argument('--group', '-g', action='store_true',
+                            help='Group individuals by field value')
+    list_parser.add_argument('--all', '-a', action='store_true',
+                            help='Show all occurrences (not just unique values)')
+    list_parser.add_argument('--stats', '-s', action='store_true',
+                            help='Show summary statistics')
+    list_parser.set_defaults(func=list_command)
     
     # Parse arguments
     args = parser.parse_args()
