@@ -107,8 +107,14 @@ class HtmlRenderer:
                         <div x-show="selectedPerson.occupation" class="info-row">
                             <strong>Occupation:</strong> <span x-text="selectedPerson.occupation"></span>
                         </div>
+                        <div x-show="selectedPerson.religion" class="info-row">
+                            <strong>Religion:</strong> <span x-text="selectedPerson.religion"></span>
+                        </div>
+                        <div x-show="selectedPerson.education" class="info-row">
+                            <strong>Education:</strong> <span x-text="selectedPerson.education"></span>
+                        </div>
                         <div x-show="selectedPerson.notes" class="info-row">
-                            <strong>Notes:</strong> <p x-text="selectedPerson.notes"></p>
+                            <strong>Notes:</strong> <span x-text="selectedPerson.notes"></span>
                         </div>
                     </div>
                 </div>
@@ -310,7 +316,10 @@ class HtmlRenderer:
         
         # Prepare data for modal
         occupation = getattr(individual, 'occupation', '') or ''
-        notes = getattr(individual, 'notes', '') or ''
+        religion = getattr(individual, 'religion', '') or ''
+        education = getattr(individual, 'education', '') or ''
+        notes = getattr(individual, 'notes', [])
+        notes_text = f"{len(notes)} notes" if notes else ''
         
         card_html = f'''<div class="{card_classes}" 
             data-person-id="{html.escape(individual.id)}"
@@ -320,7 +329,9 @@ class HtmlRenderer:
             data-gender="{gender}"
             data-role="{role}"
             data-occupation="{html.escape(occupation)}"
-            data-notes="{html.escape(notes)}"
+            data-religion="{html.escape(religion)}"
+            data-education="{html.escape(education)}"
+            data-notes="{html.escape(notes_text)}"
             @click="showPersonDetails($el)">'''
         
         # Photo if available
@@ -1009,6 +1020,8 @@ function familyTreeApp() {
                 birthPlace: element.querySelector('.birth-place')?.textContent.replace('Born: ', '') || '',
                 deathPlace: element.querySelector('.death-place')?.textContent.replace('Died: ', '') || '',
                 occupation: element.dataset.occupation || '',
+                religion: element.dataset.religion || '',
+                education: element.dataset.education || '',
                 notes: element.dataset.notes || '',
                 gender: element.dataset.gender || 'U',
                 role: element.dataset.role || ''

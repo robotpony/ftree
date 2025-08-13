@@ -3,7 +3,7 @@
 import codecs
 from typing import Optional, Tuple, List
 from pathlib import Path
-from .models import Individual, Family, FamilyTree
+from .models import Individual, Family, FamilyTree, Note, Source
 
 
 class GedcomParser:
@@ -93,6 +93,15 @@ class GedcomParser:
         elif tag == 'FAM':
             self.current_type = 'FAM'
             self.current_record = Family(value)
+        elif tag == 'NOTE':
+            self.current_type = 'NOTE'
+            self.current_record = Note(value)
+            if value and not value.startswith('@'):
+                # Inline note text
+                self.current_record.text = value
+        elif tag == 'SOUR':
+            self.current_type = 'SOUR'
+            self.current_record = Source(value)
         elif tag == 'HEAD':
             self.current_type = 'HEAD'
             self.current_record = {}
@@ -115,6 +124,8 @@ class GedcomParser:
         self.current_birth = False
         self.current_death = False
         self.current_marriage = False
+        self.current_engagement = False
+        self.current_divorce = False
         self.current_object = False
         
         if self.current_type == 'INDI':
@@ -132,6 +143,14 @@ class GedcomParser:
                 self.current_record.family_child.append(value)
             elif tag == 'OBJE':
                 self.current_object = True
+            elif tag == 'OCCU':
+                self.current_record.occupation = value
+            elif tag == 'RELI':
+                self.current_record.religion = value
+            elif tag == 'EDUC':
+                self.current_record.education = value
+            elif tag == 'NOTE':
+                self.current_record.notes.append(value)
         
         elif self.current_type == 'FAM':
             if tag == 'HUSB':
@@ -142,6 +161,31 @@ class GedcomParser:
                 self.current_record.children_ids.append(value)
             elif tag == 'MARR':
                 self.current_marriage = True
+            elif tag == 'ENGA':
+                self.current_engagement = True
+            elif tag == 'DIV':
+                self.current_divorce = True
+        
+        elif self.current_type == 'NOTE':
+            if tag == 'CONT':
+                self.current_record.continuation.append(value or "")
+            elif tag == 'CONC':
+                if self.current_record.continuation:
+                    self.current_record.continuation[-1] += (value or "")
+                else:
+                    self.current_record.text += (value or "")
+        
+        elif self.current_type == 'SOUR':
+            if tag == 'TITL':
+                self.current_record.title = value
+            elif tag == 'AUTH':
+                self.current_record.author = value
+            elif tag == 'PUBL':
+                self.current_record.publication = value
+            elif tag == 'ABBR':
+                self.current_record.abbreviation = value
+            elif tag == 'TEXT':
+                self.current_record.text = value
     
     def _process_level2(self, tag: str, value: Optional[str]):
         """Process level 2 tags."""
@@ -174,6 +218,12 @@ class GedcomParser:
                     self.current_record.marriage_date = value
                 elif tag == 'PLAC':
                     self.current_record.marriage_place = value
+            elif hasattr(self, 'current_engagement') and self.current_engagement:
+                if tag == 'DATE':
+                    self.current_record.engagement_date = value
+            elif hasattr(self, 'current_divorce') and self.current_divorce:
+                if tag == 'DATE':
+                    self.current_record.divorce_date = value
     
     def _parse_name(self, name_str: Optional[str]):
         """Parse a NAME field into given name and surname."""
@@ -196,6 +246,10 @@ class GedcomParser:
             self.tree.add_individual(self.current_record)
         elif self.current_type == 'FAM' and self.current_record:
             self.tree.add_family(self.current_record)
+        elif self.current_type == 'NOTE' and self.current_record:
+            self.tree.add_note(self.current_record)
+        elif self.current_type == 'SOUR' and self.current_record:
+            self.tree.add_source(self.current_record)
         elif self.current_type == 'HEAD' and self.current_record:
             self.tree.header = self.current_record
         elif self.current_type == 'SUBM' and self.current_record:

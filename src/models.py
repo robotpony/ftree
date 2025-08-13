@@ -20,6 +20,10 @@ class Individual:
         self.family_spouse: List[str] = []  # FAMS - families where spouse
         self.family_child: List[str] = []   # FAMC - families where child
         self.objects: List[str] = []  # URLs or other objects
+        self.occupation: Optional[str] = None  # OCCU
+        self.religion: Optional[str] = None    # RELI
+        self.education: Optional[str] = None   # EDUC
+        self.notes: List[str] = []            # NOTE references
     
     @property
     def name(self) -> str:
@@ -73,9 +77,45 @@ class Family:
         self.children_ids: List[str] = []
         self.marriage_date: Optional[str] = None
         self.marriage_place: Optional[str] = None
+        self.engagement_date: Optional[str] = None  # ENGA
+        self.divorce_date: Optional[str] = None     # DIV
     
     def __repr__(self) -> str:
         return f"Family({self.id}, H={self.husband_id}, W={self.wife_id}, C={len(self.children_ids)})"
+
+
+class Note:
+    """Represents a note record in GEDCOM."""
+    
+    def __init__(self, id: str):
+        self.id = id
+        self.text: str = ""
+        self.continuation: List[str] = []  # CONT/CONC lines
+    
+    @property
+    def full_text(self) -> str:
+        """Get the complete note text including continuations."""
+        if not self.continuation:
+            return self.text
+        return self.text + " " + " ".join(self.continuation)
+    
+    def __repr__(self) -> str:
+        return f"Note({self.id}, {len(self.full_text)} chars)"
+
+
+class Source:
+    """Represents a source record in GEDCOM."""
+    
+    def __init__(self, id: str):
+        self.id = id
+        self.title: Optional[str] = None      # TITL
+        self.author: Optional[str] = None     # AUTH
+        self.publication: Optional[str] = None # PUBL
+        self.abbreviation: Optional[str] = None # ABBR
+        self.text: Optional[str] = None       # TEXT
+    
+    def __repr__(self) -> str:
+        return f"Source({self.id}, {self.title or 'No title'})"
 
 
 class FamilyTree:
@@ -84,6 +124,8 @@ class FamilyTree:
     def __init__(self):
         self.individuals: Dict[str, Individual] = {}
         self.families: Dict[str, Family] = {}
+        self.notes: Dict[str, Note] = {}
+        self.sources: Dict[str, Source] = {}
         self.submitter: Optional[Dict] = None
         self.header: Optional[Dict] = None
     
@@ -95,6 +137,14 @@ class FamilyTree:
         """Add a family to the tree."""
         self.families[family.id] = family
     
+    def add_note(self, note: Note):
+        """Add a note to the tree."""
+        self.notes[note.id] = note
+    
+    def add_source(self, source: Source):
+        """Add a source to the tree."""
+        self.sources[source.id] = source
+    
     def get_individual(self, id: str) -> Optional[Individual]:
         """Get individual by ID."""
         return self.individuals.get(id)
@@ -102,6 +152,14 @@ class FamilyTree:
     def get_family(self, id: str) -> Optional[Family]:
         """Get family by ID."""
         return self.families.get(id)
+    
+    def get_note(self, id: str) -> Optional[Note]:
+        """Get note by ID."""
+        return self.notes.get(id)
+    
+    def get_source(self, id: str) -> Optional[Source]:
+        """Get source by ID."""
+        return self.sources.get(id)
     
     def get_roots(self) -> List[Individual]:
         """Find individuals with no parents (tree roots)."""

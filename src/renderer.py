@@ -11,15 +11,19 @@ class AsciiRenderer:
         self.tree = tree
         self.rendered_individuals: Set[str] = set()
     
-    def render(self, show_places: bool = False, show_marriage: bool = False) -> str:
+    def render(self, show_places: bool = False, show_marriage: bool = False, show_occupation: bool = False, show_notes: bool = False) -> str:
         """Render the complete family tree.
         
         Args:
             show_places: Include birth/death places in output
             show_marriage: Include marriage dates in output
+            show_occupation: Include occupation information
+            show_notes: Include note references
         """
         self.show_places = show_places
         self.show_marriage = show_marriage
+        self.show_occupation = show_occupation
+        self.show_notes = show_notes
         self.rendered_individuals = set()  # Reset for each render
         output = []
         
@@ -177,12 +181,26 @@ class AsciiRenderer:
             if individual.death_place:
                 place_parts.append(f"died: {individual.death_place}")
         
+        # Add occupation if requested
+        occupation_parts = []
+        if self.show_occupation and individual.occupation:
+            occupation_parts.append(f"occupation: {individual.occupation}")
+        
+        # Add notes if requested
+        notes_parts = []
+        if self.show_notes and individual.notes:
+            notes_parts.append(f"notes: {len(individual.notes)} note(s)")
+        
         # Combine all parts
         result = name
         if date_parts:
             result += " " + date_parts[0]
         if place_parts:
             result += " [" + "; ".join(place_parts) + "]"
+        if occupation_parts:
+            result += " {" + "; ".join(occupation_parts) + "}"
+        if notes_parts:
+            result += " *" + "; ".join(notes_parts) + "*"
         
         return result
     

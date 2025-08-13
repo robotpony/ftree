@@ -58,6 +58,14 @@ class FamilyFormatter:
         if family.marriage_place:
             lines.append(f"**Marriage place:** {family.marriage_place}")
         
+        # Engagement info
+        if family.engagement_date:
+            lines.append(f"**Engagement date:** {family.engagement_date}")
+        
+        # Divorce info
+        if family.divorce_date:
+            lines.append(f"**Divorce date:** {family.divorce_date}")
+        
         # Children (already sorted by birth year)
         if children:
             lines.append("**Children:**")
@@ -84,6 +92,14 @@ class FamilyFormatter:
             if individual.death_place:
                 death_info += f" in {individual.death_place}"
             details.append(death_info)
+        
+        # Add occupation if available
+        if individual.occupation:
+            details.append(f"occupation: {individual.occupation}")
+        
+        # Add notes count if available
+        if individual.notes:
+            details.append(f"{len(individual.notes)} note(s)")
         
         if details:
             return f"{name} ({'; '.join(details)})"
