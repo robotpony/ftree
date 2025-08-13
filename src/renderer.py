@@ -11,7 +11,7 @@ class AsciiRenderer:
         self.tree = tree
         self.rendered_individuals: Set[str] = set()
     
-    def render(self, show_places: bool = False, show_marriage: bool = False, show_occupation: bool = False, show_notes: bool = False) -> str:
+    def render(self, show_places: bool = True, show_marriage: bool = False, show_occupation: bool = False, show_notes: bool = False) -> str:
         """Render the complete family tree.
         
         Args:
@@ -34,7 +34,7 @@ class AsciiRenderer:
         for family in root_families:
             family_output = self._render_family_tree(family, "", True)
             if family_output:
-                output.append(family_output)
+                output.append(family_output +  "\n")
         
         # Render any remaining unconnected individuals
         for individual in self.tree.individuals.values():
