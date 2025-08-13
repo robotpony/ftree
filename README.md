@@ -2,14 +2,46 @@
 
 Plot and lint GEDCOM files for genealogy. Generates PNG, Markdown, and SVG family trees from standard inputs. Lint-tests family tree files showing missing data, errors, etc.
 
-## Motiation
+## Motivation
 
-I created this utility to dump the .GED files I exported after using a family tree builder, so I could view the files I created.
+I created `ftree` to dump  .GED files, after I used a service to build a family tree, so I could continue to view my files after the service expired.
+
+## Installation
+
+To run the tool, use the executable in the `bin/` directory:
+
+```bash
+./bin/ftree <command> [options]
+```
+
+Or add the bin directory to your PATH for system-wide access:
+
+```bash
+export PATH="$PATH:/path/to/ftree/bin"
+ftree <command> [options]
+```
 
 ## Usage
 
+The ftree tool provides several commands for working with GEDCOM genealogy files:
+
+```bash
+# View family tree in ASCII format
+ftree view <filename> [options]
+
+# Check file validity and statistics  
+ftree check <filename>
+
+# Export to HTML/SVG formats
+ftree export <filename> [options]
+
+# Extract and analyze field data
+ftree list <filename> [field_alias] [options]
 ```
-$ ftree view <filemame>
+
+**Example output:**
+```
+$ ftree view myfile.ged
 
 Name LastName (1980-)
 ├── Name LastName (1950-1999)
@@ -50,15 +82,70 @@ ftree check myfile.ged
 
 #### `ftree export <filename>`
 
-Export family tree to various formats (not yet implemented).
+Export family tree to various formats.
 
 **Options:**
-- `--format {svg,html}` - Output format (default: svg)
+- `--format {svg,html}` - Output format (default: html)
+- `--output`, `-o` - Specify output file path (default: input filename with new extension)
+- `--theme` - CSS theme for HTML output (default: default)
+- `--no-places` - Exclude birth/death places from HTML output
+- `--no-photos` - Exclude photos from HTML output
 
-**Example:**
+**Examples:**
 ```bash
+# Export to HTML with default settings
+ftree export myfile.ged
+
+# Export to HTML with custom output path
+ftree export myfile.ged --output my_tree.html
+
+# Export without places and photos
+ftree export myfile.ged --no-places --no-photos
+
+# Export to SVG (not yet implemented)
 ftree export myfile.ged --format=svg
-``` 
+```
+
+#### `ftree list <filename> [field_alias]`
+
+Extract and analyze field values from GEDCOM files. Useful for data analysis and quality checking.
+
+**Field Aliases:**
+- `cities` or `places` - All birth/death places
+- `names` - All individual names
+- `surnames` - All surnames
+- `dates` - All dates (birth, death, marriage)
+- `birth_dates` - Birth dates only
+- `death_dates` - Death dates only  
+- `birth_places` - Birth places only
+- `death_places` - Death places only
+- `marriage_dates` - Marriage dates only
+- `marriage_places` - Marriage places only
+
+**Options:**
+- `--field`, `-f` - Specify exact field name instead of alias
+- `--count`, `-c` - Show count for each value
+- `--group`, `-g` - Group individuals by field value
+- `--all`, `-a` - Show all occurrences (not just unique values)
+- `--stats`, `-s` - Show summary statistics
+
+**Examples:**
+```bash
+# List all unique places
+ftree list myfile.ged places
+
+# Count occurrences of each surname
+ftree list myfile.ged surnames --count
+
+# Group people by birth place
+ftree list myfile.ged birth_places --group
+
+# Show all dates with statistics
+ftree list myfile.ged dates --all --stats
+
+# List using exact field name
+ftree list myfile.ged --field birth_date
+```
 
 ## Formats
 
