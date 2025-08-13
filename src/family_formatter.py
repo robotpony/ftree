@@ -28,7 +28,7 @@ class FamilyFormatter:
             for individual in orphans:
                 output.append(f"- {self._format_individual(individual)}")
         
-        return "\n\n".join(output)
+        return "\n\n\n".join(output)
     
     def _format_family_group(self, group: Dict) -> str:
         """Format a single family group."""
