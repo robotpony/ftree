@@ -662,7 +662,7 @@ Most modern GEDCOM files use UTF-8. The 555SAMPLE16LE.GED sample demonstrates th
 | `FE FF` | UTF-16 BE |
 | (none) | Check CHAR declaration; default to ANSEL for 5.5, UTF-8 for 5.5.1+ |
 
-**ftree status:** Supported (UTF-8, ASCII). ANSEL and UTF-16 handling is planned.
+**ftree status:** Supported (UTF-8, ASCII, UTF-16 via BOM detection). ANSEL is planned.
 
 ## 11. Multimedia (OBJE)
 
