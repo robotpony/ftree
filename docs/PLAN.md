@@ -2,38 +2,42 @@
 
 Phased approach to building ftree. Each phase produces a usable tool with incrementally more capability.
 
-## Phase 1: Core Parser + Check Command
+## Phase 1: Core Parser + Check Command ✓
+
+**Status:** Complete (v0.1.0)
 
 **Goal:** Parse GEDCOM files and report statistics. Validate the data model works.
 
 **Deliverables:**
 
-1. Cargo project setup (lib + binary crate, clap skeleton)
-2. Core model types (`FamilyTree`, `Individual`, `Family`, `Name`, `Event`, `Date`, `Place`)
-3. GEDCOM lexer (line tokenizer)
-4. GEDCOM builder (tokens → `FamilyTree`)
-5. UTF-8 encoding support (BOM detection, UTF-16 conversion via `encoding_rs`)
-6. `ftree check <file>` command: parse and print statistics (individual count, family count, missing fields)
-7. Unit tests for lexer and builder
-8. Integration tests against all sample .ged files
+1. ✓ Cargo project setup (lib + binary crate, clap skeleton)
+2. ✓ Core model types (`FamilyTree`, `Individual`, `Family`, `Name`, `Event`, `Date`, `Place`)
+3. ✓ GEDCOM lexer (line tokenizer)
+4. ✓ GEDCOM builder (tokens → `FamilyTree`)
+5. ✓ UTF-8 encoding support (BOM detection, UTF-16 conversion via `encoding_rs`)
+6. ✓ `ftree check <file>` command: parse and print statistics (individual count, family count, missing fields)
+7. ✓ Unit tests for lexer and builder (40 unit tests)
+8. ✓ Integration tests against all sample .ged files (6 integration tests)
 
 **Supported tags:** HEAD, TRLR, INDI, FAM, SUBM, NAME (GIVN, SURN), SEX, BIRT, DEAT, FAMS, FAMC, HUSB, WIFE, CHIL, MARR, DATE, PLAC, OBJE, FILE
 
 **Exit criteria:** All five sample files parse without errors. `ftree check` reports accurate counts.
 
-## Phase 2: Markdown Export
+## Phase 2: Markdown Export ✓
+
+**Status:** Complete (v0.2.0)
 
 **Goal:** Export to one-Markdown-file-per-person for Obsidian.
 
 **Deliverables:**
 
-1. Renderer trait definition
-2. Markdown renderer (YAML front-matter + wikilinks)
-3. `ftree export <file> --format md --output <dir>` command
-4. File naming strategy (handle duplicate names, special characters)
-5. Tests verifying front-matter structure and wikilink correctness
+1. ✓ Renderer trait definition
+2. ✓ Markdown renderer (YAML front-matter + wikilinks)
+3. ✓ `ftree export <file> --format md --output <dir>` command
+4. ✓ File naming strategy (handle duplicate names, special characters)
+5. ✓ Tests verifying front-matter structure and wikilink correctness (9 unit + 7 integration)
 
-**Front-matter fields:** name, birth date/place, death date/place, tags, related individuals
+**Front-matter fields:** name, sex, birth_date, birth_place, death_date, death_place, tags (person, male/female)
 
 **Exit criteria:** Exported Markdown files open correctly in Obsidian with working inter-file links.
 

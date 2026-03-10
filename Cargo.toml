@@ -1,0 +1,15 @@
+[package]
+name = "ftree"
+version = "0.2.0"
+edition = "2021"
+description = "Read and convert GEDCOM genealogy files to Markdown, CSV, and more"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+encoding_rs = "0.8"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"

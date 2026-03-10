@@ -10,91 +10,57 @@ I created `ftree` to dump  .GED files, after I used a web service to build a fam
 
 ## Installation
 
-To run the tool, use the executable in the `bin/` directory:
+Requires Rust toolchain. Build with:
 
 ```bash
-./bin/ftree <command> [options]
+cargo build --release
 ```
 
-Or add the bin directory to your PATH for system-wide access:
-
-```bash
-export PATH="$PATH:/path/to/ftree/bin"
-ftree <command> [options]
-```
+The binary will be at `target/release/ftree`.
 
 ## Usage
 
 The ftree tool provides several commands for working with GEDCOM genealogy files:
 
 ```bash
-# View family tree in ASCII format
-ftree view <filename> [options]
-
-# Check file validity and statistics  
+# Check file validity and statistics
 ftree check <filename>
 
-# Export markdown or CSV
+# Export to Markdown (one file per person)
 ftree export <filename> [options]
 ```
 
 ### Commands
 
-#### `ftree view <filename>`
-
-View a family tree in Markdown format for the terminal. The markdown is formatted for Obsidian or Hugo, with front-matter containing tags, locations, and other metadata, and the body containing lists of links to resources, full descriptions, and links to parents/children.
-
-**Example:**
-```bash
-ftree view myfile.ged
-```
-
 #### `ftree check <filename>`
 
-Check a GEDCOM file for validity and missing data.
+Check a GEDCOM file for validity and missing data. Reports individual/family counts, missing fields, and parser warnings.
 
-Displays file statistics including:
-- Number of individuals and families
-- Missing names, birth dates, and death dates
-- Validation warnings and errors
-
-**Example:**
 ```bash
 ftree check myfile.ged
 ```
 
 #### `ftree export <filename>`
 
-Export family tree to various formats.
+Export family tree to Markdown. Creates one `.md` file per individual with YAML front-matter and Obsidian wikilinks.
 
 **Options:**
-- `--format {md,csv}` - Output format (default: md)
-- `--output`, `-o` - Specify output file path (default: input filename with new extension)
 
-**Examples:**
+- `--format md` — Output format (default: md)
+- `--output`, `-o` — Output directory (default: input filename without extension)
+
 ```bash
-# Export with default settings
+# Export to ./myfile/ directory
 ftree export myfile.ged
 
-# Export twith custom output path
-ftree export myfile.ged --output ~/tmp
+# Export to a specific directory
+ftree export myfile.ged --output ~/obsidian-vault/family
 ```
 
-#### `ftree list <filename> [field_alias]`
+#### Planned commands
 
-Extract and analyze field values from GEDCOM files. Useful for data analysis and quality checking.
-
-**Field Aliases:**
-- `cities` or `places` - All birth/death places
-- `names` - All individual names
-- `surnames` - All surnames
-- `dates` - All dates (birth, death, marriage)
-- `birth_dates` - Birth dates only
-- `death_dates` - Death dates only  
-- `birth_places` - Birth places only
-- `death_places` - Death places only
-- `marriage_dates` - Marriage dates only
-- `marriage_places` - Marriage places only
+- `ftree view <filename>` — ASCII tree view (Phase 4)
+- `ftree list <filename> <field>` — Extract field values (Phase 3)
 
 ## Formats
 
