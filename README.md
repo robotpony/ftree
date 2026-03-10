@@ -42,25 +42,47 @@ ftree check myfile.ged
 
 #### `ftree export <filename>`
 
-Export family tree to Markdown. Creates one `.md` file per individual with YAML front-matter and Obsidian wikilinks.
+Export family tree to Markdown or CSV.
 
 **Options:**
 
-- `--format md` — Output format (default: md)
-- `--output`, `-o` — Output directory (default: input filename without extension)
+- `--format md|csv` — Output format (default: md)
+- `--output`, `-o` — Output path (directory for md, file for csv)
 
 ```bash
-# Export to ./myfile/ directory
+# Export to Markdown (one file per person)
 ftree export myfile.ged
-
-# Export to a specific directory
 ftree export myfile.ged --output ~/obsidian-vault/family
+
+# Export to CSV
+ftree export myfile.ged --format csv
+ftree export myfile.ged --format csv --output family.csv
+```
+
+#### `ftree list <filename> <field>`
+
+Extract specific field values from a GEDCOM file. Useful for quick lookups and piping to other tools.
+
+**Fields:** names, surnames, places, dates
+
+**Options:**
+
+- `--unique` — Deduplicate and sort output
+
+```bash
+# List all names
+ftree list myfile.ged names
+
+# List unique surnames
+ftree list myfile.ged surnames --unique
+
+# List all places mentioned (birth, death, marriage)
+ftree list myfile.ged places --unique
 ```
 
 #### Planned commands
 
 - `ftree view <filename>` — ASCII tree view (Phase 4)
-- `ftree list <filename> <field>` — Extract field values (Phase 3)
 
 ## Formats
 

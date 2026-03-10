@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 — Phase 3: CSV Export + List Command
+
+Tabular data export and field extraction from GEDCOM files.
+
+**Features:**
+
+- `ftree export <file> --format csv` command (outputs to `<file>.csv` by default)
+- CSV columns: xref, name, given, surname, sex, birth_date, birth_place, death_date, death_place, father, mother, spouses
+- RFC 4180 compliant CSV escaping (quoted fields for commas, quotes, newlines)
+- `ftree list <file> <field>` command for extracting field values
+- Supported fields: names, surnames, places, dates
+- `--unique` flag for deduplicated, sorted output
+- Places and dates extracted from individual events (birth, death) and family events (marriage)
+
+**Tests:** 68 unit tests, 24 integration tests.
+
 ## 0.2.0 — Phase 2: Markdown Export
 
 Export family tree to Obsidian-compatible Markdown files with YAML front-matter and wikilinks.

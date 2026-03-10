@@ -23,13 +23,25 @@ enum Commands {
         /// Path to the GEDCOM file
         file: PathBuf,
 
-        /// Output format
+        /// Output format (md, csv)
         #[arg(long, default_value = "md")]
         format: String,
 
-        /// Output path (directory for md, file for other formats)
+        /// Output path (directory for md, file for csv)
         #[arg(short, long)]
         output: Option<PathBuf>,
+    },
+    /// List field values extracted from a GEDCOM file
+    List {
+        /// Path to the GEDCOM file
+        file: PathBuf,
+
+        /// Field to extract (names, surnames, places, dates)
+        field: String,
+
+        /// Output only unique values, sorted alphabetically
+        #[arg(long)]
+        unique: bool,
     },
 }
 
@@ -64,9 +76,49 @@ fn main() -> Result<()> {
                         output_dir.display()
                     );
                 }
-                other => {
-                    anyhow::bail!("Unsupported format: {}. Available: md", other);
+                "csv" => {
+                    let output_file = output.unwrap_or_else(|| {
+                        file.with_extension("csv")
+                    });
+                    let renderer = ftree::render::csv::CsvRenderer;
+                    renderer
+                        .render(&tree, &output_file)
+                        .with_context(|| format!("Failed to export to {}", output_file.display()))?;
+                    println!(
+                        "Exported {} individuals to {}",
+                        tree.individuals.len(),
+                        output_file.display()
+                    );
                 }
+                other => {
+                    anyhow::bail!("Unsupported format: {}. Available: md, csv", other);
+                }
+            }
+            Ok(())
+        }
+        Commands::List {
+            file,
+            field,
+            unique,
+        } => {
+            let list_field = ftree::render::list::ListField::parse(&field)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Unknown field: '{}'. Available: {}",
+                        field,
+                        ftree::render::list::ListField::valid_aliases()
+                    )
+                })?;
+
+            let tree = load_tree(&file)?;
+            let mut values = ftree::render::list::extract(&tree, list_field);
+
+            if unique {
+                values = ftree::render::list::unique_sorted(values);
+            }
+
+            for value in &values {
+                println!("{}", value);
             }
             Ok(())
         }

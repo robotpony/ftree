@@ -41,16 +41,19 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Exit criteria:** Exported Markdown files open correctly in Obsidian with working inter-file links.
 
-## Phase 3: CSV Export + List Command
+## Phase 3: CSV Export + List Command ✓
+
+**Status:** Complete (v0.3.0)
 
 **Goal:** Tabular data export and field extraction.
 
 **Deliverables:**
 
-1. CSV renderer
-2. `ftree export <file> --format csv` command
-3. `ftree list <file> <field_alias>` command (names, surnames, places, dates, etc.)
-4. Tests for CSV output correctness
+1. ✓ CSV renderer (xref, name, given, surname, sex, birth/death date/place, father, mother, spouses)
+2. ✓ `ftree export <file> --format csv` command (defaults output to `<file>.csv`)
+3. ✓ `ftree list <file> <field>` command (names, surnames, places, dates)
+4. ✓ `--unique` flag for deduplicated, sorted output on `list`
+5. ✓ Tests: 12 unit tests for CSV, 7 unit tests for list, 8 integration tests
 
 **Exit criteria:** CSV opens correctly in spreadsheet applications. `list` command outputs match expected field values.
 

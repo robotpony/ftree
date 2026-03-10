@@ -1,4 +1,6 @@
 use ftree::parse::gedcom;
+use ftree::render::csv::CsvRenderer;
+use ftree::render::list::{self, ListField};
 use ftree::render::markdown::MarkdownRenderer;
 use ftree::render::Renderer;
 
@@ -307,4 +309,139 @@ fn test_markdown_export_all_samples() {
             );
         }
     }
+}
+
+// --- CSV export integration tests ---
+
+fn export_csv_to_tempdir(filename: &str) -> (ftree::model::FamilyTree, tempfile::TempDir) {
+    let tree = parse_sample(filename);
+    let dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let output = dir.path().join("output.csv");
+    let renderer = CsvRenderer;
+    renderer.render(&tree, &output).expect("CSV render failed");
+    (tree, dir)
+}
+
+#[test]
+fn test_csv_export_creates_file() {
+    let (_tree, dir) = export_csv_to_tempdir("test_details.ged");
+    let output = dir.path().join("output.csv");
+    assert!(output.exists());
+}
+
+#[test]
+fn test_csv_export_content() {
+    let (tree, dir) = export_csv_to_tempdir("test_details.ged");
+    let output = dir.path().join("output.csv");
+    let content = std::fs::read_to_string(&output).unwrap();
+
+    let lines: Vec<&str> = content.lines().collect();
+    // Header + one row per individual
+    assert_eq!(lines.len(), tree.individuals.len() + 1);
+
+    // Header row
+    assert!(lines[0].starts_with("xref,name,given,surname,sex,"));
+
+    // Data contains expected names
+    assert!(content.contains("John Smith"));
+    assert!(content.contains("Jane Doe"));
+    assert!(content.contains("Robert Smith"));
+}
+
+#[test]
+fn test_csv_export_all_samples() {
+    let samples = [
+        "test_details.ged",
+        "Simpsons Cartoon.ged",
+        "Harry Potter.ged",
+        "Microsoft Windows DOS OS2.ged",
+        "555SAMPLE16LE.GED",
+    ];
+
+    for sample in &samples {
+        let (tree, dir) = export_csv_to_tempdir(sample);
+        let output = dir.path().join("output.csv");
+        let content = std::fs::read_to_string(&output).unwrap();
+
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(
+            lines.len(),
+            tree.individuals.len() + 1,
+            "{}: row count mismatch",
+            sample
+        );
+    }
+}
+
+#[test]
+fn test_csv_export_valid_utf8() {
+    let (_tree, dir) = export_csv_to_tempdir("555SAMPLE16LE.GED");
+    let output = dir.path().join("output.csv");
+    // Should be valid UTF-8
+    let content = std::fs::read_to_string(&output);
+    assert!(content.is_ok(), "CSV output should be valid UTF-8");
+    assert!(content.unwrap().contains("Robert Eugene Williams"));
+}
+
+// --- List command integration tests ---
+
+#[test]
+fn test_list_names_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let names = list::extract(&tree, ListField::Names);
+    assert_eq!(names.len(), 3);
+    assert!(names.contains(&"John Smith".to_string()));
+    assert!(names.contains(&"Jane Doe".to_string()));
+    assert!(names.contains(&"Robert Smith".to_string()));
+}
+
+#[test]
+fn test_list_surnames_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let surnames = list::extract(&tree, ListField::Surnames);
+    assert!(surnames.contains(&"Smith".to_string()));
+    assert!(surnames.contains(&"Doe".to_string()));
+}
+
+#[test]
+fn test_list_surnames_unique() {
+    let tree = parse_sample("test_details.ged");
+    let surnames = list::unique_sorted(list::extract(&tree, ListField::Surnames));
+    // Should be deduplicated and sorted
+    assert_eq!(surnames, vec!["Doe", "Smith"]);
+}
+
+#[test]
+fn test_list_places_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let places = list::extract(&tree, ListField::Places);
+    assert!(places.contains(&"Boston, MA, USA".to_string()));
+    assert!(places.contains(&"New York, NY, USA".to_string()));
+}
+
+#[test]
+fn test_list_dates_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let dates = list::extract(&tree, ListField::Dates);
+    assert!(dates.contains(&"1 Jan 1900".to_string()));
+    assert!(dates.contains(&"31 Dec 1980".to_string()));
+}
+
+#[test]
+fn test_list_names_simpsons() {
+    let tree = parse_sample("Simpsons Cartoon.ged");
+    let names = list::extract(&tree, ListField::Names);
+    assert!(names.contains(&"Homer Simpson".to_string()));
+    assert!(names.contains(&"Bart Simpson".to_string()));
+}
+
+#[test]
+fn test_list_surnames_harry_potter_unique() {
+    let tree = parse_sample("Harry Potter.ged");
+    let surnames = list::unique_sorted(list::extract(&tree, ListField::Surnames));
+    assert!(surnames.contains(&"Potter".to_string()));
+    // Should have no duplicates
+    let mut check = surnames.clone();
+    check.dedup();
+    assert_eq!(surnames.len(), check.len());
 }
