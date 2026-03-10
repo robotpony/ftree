@@ -31,6 +31,19 @@ enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// View family tree as ASCII art in the terminal
+    View {
+        /// Path to the GEDCOM file
+        file: PathBuf,
+
+        /// Layout orientation (topdown, horizontal)
+        #[arg(long, default_value = "horizontal")]
+        layout: String,
+
+        /// Output to file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// List field values extracted from a GEDCOM file
     List {
         /// Path to the GEDCOM file
@@ -92,6 +105,35 @@ fn main() -> Result<()> {
                 }
                 other => {
                     anyhow::bail!("Unsupported format: {}. Available: md, csv", other);
+                }
+            }
+            Ok(())
+        }
+        Commands::View {
+            file,
+            layout,
+            output,
+        } => {
+            let ascii_layout = ftree::render::ascii::Layout::parse(&layout)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Unknown layout: '{}'. Available: topdown, horizontal",
+                        layout
+                    )
+                })?;
+
+            let tree = load_tree(&file)?;
+            let renderer = ftree::render::ascii::AsciiRenderer { layout: ascii_layout };
+
+            match output {
+                Some(path) => {
+                    renderer
+                        .render(&tree, &path)
+                        .with_context(|| format!("Failed to write to {}", path.display()))?;
+                    println!("Wrote tree to {}", path.display());
+                }
+                None => {
+                    print!("{}", renderer.render_to_string(&tree));
                 }
             }
             Ok(())

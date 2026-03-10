@@ -1,3 +1,4 @@
+pub mod ascii;
 pub mod csv;
 pub mod list;
 pub mod markdown;
