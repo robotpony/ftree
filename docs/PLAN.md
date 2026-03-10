@@ -57,20 +57,34 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Exit criteria:** CSV opens correctly in spreadsheet applications. `list` command outputs match expected field values.
 
-## Phase 4: ASCII Tree View
+## Phase 4: ASCII Tree View ✓
+
+**Status:** Complete (v0.4.0)
 
 **Goal:** Terminal-based tree visualization.
 
 **Deliverables:**
 
-1. ASCII renderer with top-down layout
-2. ASCII renderer with left-to-right horizontal layout
-3. `ftree view <file> [--layout topdown|horizontal]` command
-4. Root ancestor detection (find individuals with no FAMC)
-5. Handle display of multiple disconnected family groups
-6. Tests for layout correctness
+1. ✓ ASCII renderer with top-down box layout (Unicode box-drawing, couples side-by-side)
+2. ✓ ASCII renderer with left-to-right horizontal layout (tree-style indentation with connectors)
+3. ✓ `ftree view <file> [--layout topdown|horizontal]` command (defaults to horizontal)
+4. ✓ Root ancestor detection (individuals with no FAMC, family deduplication)
+5. ✓ Multiple disconnected family groups rendered with blank line separation
+6. ✓ Optional `--output` flag to write to file instead of stdout
+7. ✓ Tests: 9 unit tests for ASCII, 6 integration tests
 
 **Exit criteria:** Trees render correctly for all sample files. Both layouts produce readable output.
+
+## Phase 4.5: Add missing tags
+
+Add the following tags:
+
+- MARR
+- REPO
+- SOUR
+- OBJE
+
+Ensure the tags are in the GEDCOM specification and add to the tool, and update the README.md.
 
 ## Phase 5: Lint + Validation
 

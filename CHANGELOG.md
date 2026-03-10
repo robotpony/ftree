@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — Phase 4: ASCII Tree View
+
+Terminal-based family tree visualization with two layout modes.
+
+**Features:**
+
+- `ftree view <file>` command with `--layout horizontal|topdown` (defaults to horizontal)
+- Horizontal layout: tree-style indentation with Unicode connectors (├──, └──, │)
+- Top-down layout: Unicode box-drawing with couples side-by-side connected by ───
+- Root ancestor detection: finds individuals with no FAMC records
+- Disconnected family groups rendered separately with blank line separation
+- Couples shown together (spouse on same line), children nested below
+- Optional `--output` flag to write to file instead of stdout
+
+**Tests:** 77 unit tests, 30 integration tests.
+
 ## 0.3.0 — Phase 3: CSV Export + List Command
 
 Tabular data export and field extraction from GEDCOM files.

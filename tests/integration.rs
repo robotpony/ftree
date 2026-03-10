@@ -1,4 +1,5 @@
 use ftree::parse::gedcom;
+use ftree::render::ascii::{AsciiRenderer, Layout};
 use ftree::render::csv::CsvRenderer;
 use ftree::render::list::{self, ListField};
 use ftree::render::markdown::MarkdownRenderer;
@@ -444,4 +445,87 @@ fn test_list_surnames_harry_potter_unique() {
     let mut check = surnames.clone();
     check.dedup();
     assert_eq!(surnames.len(), check.len());
+}
+
+// --- ASCII view integration tests ---
+
+#[test]
+fn test_ascii_horizontal_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let renderer = AsciiRenderer { layout: Layout::Horizontal };
+    let output = renderer.render_to_string(&tree);
+
+    assert!(output.contains("John Smith ── Jane Doe"));
+    assert!(output.contains("Robert Smith"));
+    // Child should be indented
+    assert!(output.contains("└── Robert Smith"));
+}
+
+#[test]
+fn test_ascii_topdown_test_details() {
+    let tree = parse_sample("test_details.ged");
+    let renderer = AsciiRenderer { layout: Layout::TopDown };
+    let output = renderer.render_to_string(&tree);
+
+    assert!(output.contains("│ John Smith │"));
+    assert!(output.contains("│ Jane Doe │"));
+    assert!(output.contains("Robert Smith"));
+    assert!(output.contains("┌"));
+    assert!(output.contains("┘"));
+}
+
+#[test]
+fn test_ascii_horizontal_simpsons() {
+    let tree = parse_sample("Simpsons Cartoon.ged");
+    let renderer = AsciiRenderer { layout: Layout::Horizontal };
+    let output = renderer.render_to_string(&tree);
+
+    assert!(output.contains("Abraham Simpson ── Mona Simpson"));
+    assert!(output.contains("Homer Simpson ── Marge Simpson"));
+    assert!(output.contains("Bart Simpson"));
+    assert!(output.contains("Lisa Simpson"));
+}
+
+#[test]
+fn test_ascii_horizontal_harry_potter() {
+    let tree = parse_sample("Harry Potter.ged");
+    let renderer = AsciiRenderer { layout: Layout::Horizontal };
+    let output = renderer.render_to_string(&tree);
+
+    assert!(output.contains("Harry Potter"));
+    assert!(output.contains("Ginevra Weasley"));
+    // Multi-generational nesting
+    assert!(output.contains("│"));
+}
+
+#[test]
+fn test_ascii_all_samples_no_panic() {
+    let samples = [
+        "test_details.ged",
+        "Simpsons Cartoon.ged",
+        "Harry Potter.ged",
+        "Microsoft Windows DOS OS2.ged",
+        "555SAMPLE16LE.GED",
+    ];
+
+    for sample in &samples {
+        let tree = parse_sample(sample);
+        for layout in [Layout::Horizontal, Layout::TopDown] {
+            let renderer = AsciiRenderer { layout };
+            let output = renderer.render_to_string(&tree);
+            assert!(!output.is_empty(), "{} ({:?}) produced empty output", sample, layout);
+        }
+    }
+}
+
+#[test]
+fn test_ascii_write_to_file() {
+    let tree = parse_sample("test_details.ged");
+    let dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let output = dir.path().join("tree.txt");
+    let renderer = AsciiRenderer { layout: Layout::Horizontal };
+    renderer.render(&tree, &output).expect("ASCII render failed");
+
+    let content = std::fs::read_to_string(&output).unwrap();
+    assert!(content.contains("John Smith"));
 }

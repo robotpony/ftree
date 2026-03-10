@@ -80,9 +80,25 @@ ftree list myfile.ged surnames --unique
 ftree list myfile.ged places --unique
 ```
 
-#### Planned commands
+#### `ftree view <filename>`
 
-- `ftree view <filename>` — ASCII tree view (Phase 4)
+Display a family tree as ASCII art in the terminal.
+
+**Options:**
+
+- `--layout horizontal|topdown` — Layout orientation (default: horizontal)
+- `--output`, `-o` — Write to file instead of stdout
+
+```bash
+# Horizontal tree (default)
+ftree view myfile.ged
+
+# Top-down box layout
+ftree view myfile.ged --layout topdown
+
+# Save to file
+ftree view myfile.ged --output tree.txt
+```
 
 ## Formats
 
