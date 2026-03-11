@@ -84,7 +84,7 @@ Add the following tags:
 - SOUR
 - OBJE
 
-Ensure the tags are in the GEDCOM specification and add to the tool, and update the README.md.
+Ensure the tags are in the GEDCOM specification and add to the tool, and update the README.md
 
 ## Phase 5: Lint + Validation
 
