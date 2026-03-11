@@ -187,8 +187,10 @@ fn print_check_report(tree: &ftree::model::FamilyTree, path: &std::path::Path) {
     }
 
     println!();
-    println!("Individuals: {}", tree.individuals.len());
-    println!("Families:    {}", tree.families.len());
+    println!("Individuals:  {}", tree.individuals.len());
+    println!("Families:     {}", tree.families.len());
+    println!("Sources:      {}", tree.sources.len());
+    println!("Repositories: {}", tree.repositories.len());
 
     let missing_names = tree
         .individuals

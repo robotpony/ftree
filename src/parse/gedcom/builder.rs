@@ -36,11 +36,26 @@ pub fn build(tokens: &[Token]) -> FamilyTree {
                 }
                 i = end;
             }
-            "SUBM" | "TRLR" | "SUBN" => {
+            "SOUR" => {
+                let end = find_record_end(tokens, i);
+                if let Some(ref xref) = token.xref {
+                    let source = build_source(xref, &tokens[i..end]);
+                    tree.sources.insert(xref.clone(), source);
+                }
+                i = end;
+            }
+            "REPO" => {
+                let end = find_record_end(tokens, i);
+                if let Some(ref xref) = token.xref {
+                    let repo = build_repository(xref, &tokens[i..end]);
+                    tree.repositories.insert(xref.clone(), repo);
+                }
+                i = end;
+            }
+            "SUBM" | "TRLR" | "SUBN" | "NOTE" => {
                 i = find_record_end(tokens, i);
             }
             _ => {
-                // Skip unrecognized level-0 records (SOUR, NOTE, REPO, etc.)
                 let end = find_record_end(tokens, i);
                 if !token.tag.starts_with('_') {
                     tree.warnings.push(ParseWarning {
@@ -184,12 +199,19 @@ fn build_individual(
                     .and_then(|t| t.value.clone());
                 indi.media.push(MediaRef { file });
             }
+            "SOUR" => {
+                // Inline source citation (pointer form: SOUR @S1@)
+                if token.value.as_ref().is_some_and(|v| v.starts_with('@')) {
+                    let citation = build_source_citation(tokens, idx);
+                    indi.source_citations.push(citation);
+                }
+            }
             // Skip known but unhandled tags silently
             "CHAN" | "REFN" | "RIN" | "AFN" | "RFN" | "ALIA"
             | "EVEN" | "BURI" | "CHR" | "BAPM" | "ADOP"
             | "OCCU" | "RESI" | "EDUC" | "RELI" | "NATI"
             | "TITL" | "CAST" | "DSCR" | "IDNO" | "NCHI"
-            | "NMR" | "PROP" | "SSN" | "FACT" | "NOTE" | "SOUR"
+            | "NMR" | "PROP" | "SSN" | "FACT" | "NOTE"
             | "CREM" | "CONF" | "GRAD" | "RETI" | "WILL"
             | "PROB" | "CENS" | "EMIG" | "IMMI" | "NATU"
             | "SUBM" | "ANCI" | "DESI" | "RESN" => {}
@@ -244,6 +266,77 @@ fn build_family(xref: &str, tokens: &[Token]) -> Family {
     }
 
     fam
+}
+
+fn build_source(xref: &str, tokens: &[Token]) -> Source {
+    let mut source = Source::new(xref.to_string());
+
+    for token in tokens.iter() {
+        if token.level != 1 {
+            continue;
+        }
+
+        match token.tag.as_str() {
+            "TITL" => {
+                source.title = token.value.clone();
+            }
+            "AUTH" => {
+                source.author = token.value.clone();
+            }
+            "PUBL" => {
+                source.publisher = token.value.clone();
+            }
+            "ABBR" => {
+                source.abbreviation = token.value.clone();
+            }
+            "TEXT" => {
+                source.text = token.value.clone();
+            }
+            "REPO" => {
+                // Pointer to repository record
+                source.repository_xref = token.value.clone();
+            }
+            // Silently skip other known substructures
+            "DATA" | "REFN" | "RIN" | "CHAN" | "NOTE" | "OBJE" => {}
+            _ if token.tag.starts_with('_') => {}
+            _ => {}
+        }
+    }
+
+    source
+}
+
+fn build_repository(xref: &str, tokens: &[Token]) -> Repository {
+    let mut repo = Repository::new(xref.to_string());
+
+    for token in tokens.iter() {
+        if token.level != 1 {
+            continue;
+        }
+
+        match token.tag.as_str() {
+            "NAME" => {
+                repo.name = token.value.clone();
+            }
+            // Silently skip address, notes, etc.
+            "ADDR" | "REFN" | "RIN" | "CHAN" | "NOTE" | "PHON" | "EMAIL" | "FAX" | "WWW" => {}
+            _ if token.tag.starts_with('_') => {}
+            _ => {}
+        }
+    }
+
+    repo
+}
+
+fn build_source_citation(tokens: &[Token], parent_idx: usize) -> SourceCitation {
+    let children = get_children(tokens, parent_idx);
+    let page = find_first(children, 2, "PAGE")
+        .and_then(|t| t.value.clone());
+
+    SourceCitation {
+        source_xref: tokens[parent_idx].value.clone().unwrap_or_default(),
+        page,
+    }
 }
 
 fn build_event(children: &[Token]) -> Event {
@@ -388,12 +481,155 @@ mod tests {
     fn test_unknown_tags_produce_warnings() {
         let input = "\
 0 HEAD
-0 @S1@ SOUR
-1 TITL Some Source
+0 @X1@ XYZZ
+1 DATA something
 0 TRLR";
         let tokens = tokenize(input);
         let tree = build(&tokens);
 
-        assert!(tree.warnings.iter().any(|w| w.message.contains("SOUR")));
+        assert!(tree.warnings.iter().any(|w| w.message.contains("XYZZ")));
+    }
+
+    #[test]
+    fn test_build_source_record() {
+        let input = "\
+0 HEAD
+0 @S1@ SOUR
+1 TITL Wikipedia Image Source
+1 AUTH John Doe
+1 PUBL Self-published
+1 ABBR Wiki
+1 TEXT Some text from the source
+1 REPO @R1@
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert_eq!(tree.sources.len(), 1);
+        let source = &tree.sources["@S1@"];
+        assert_eq!(source.title, Some("Wikipedia Image Source".to_string()));
+        assert_eq!(source.author, Some("John Doe".to_string()));
+        assert_eq!(source.publisher, Some("Self-published".to_string()));
+        assert_eq!(source.abbreviation, Some("Wiki".to_string()));
+        assert_eq!(source.text, Some("Some text from the source".to_string()));
+        assert_eq!(source.repository_xref, Some("@R1@".to_string()));
+    }
+
+    #[test]
+    fn test_build_source_title_only() {
+        let input = "\
+0 @S1@ SOUR
+1 TITL My Source";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let source = &tree.sources["@S1@"];
+        assert_eq!(source.display_title(), "My Source");
+    }
+
+    #[test]
+    fn test_build_source_no_title_falls_back_to_abbr() {
+        let input = "\
+0 @S1@ SOUR
+1 ABBR ShortName";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let source = &tree.sources["@S1@"];
+        assert_eq!(source.display_title(), "ShortName");
+    }
+
+    #[test]
+    fn test_build_repository_record() {
+        let input = "\
+0 HEAD
+0 @R1@ REPO
+1 NAME Family History Library
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert_eq!(tree.repositories.len(), 1);
+        let repo = &tree.repositories["@R1@"];
+        assert_eq!(repo.name, Some("Family History Library".to_string()));
+    }
+
+    #[test]
+    fn test_inline_source_citation() {
+        let input = "\
+0 @S1@ SOUR
+1 TITL Birth Records
+0 @I1@ INDI
+1 NAME John /Smith/
+1 SOUR @S1@
+2 PAGE Sec. 2, p. 45
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.source_citations.len(), 1);
+        assert_eq!(indi.source_citations[0].source_xref, "@S1@");
+        assert_eq!(indi.source_citations[0].page, Some("Sec. 2, p. 45".to_string()));
+    }
+
+    #[test]
+    fn test_inline_source_citation_no_page() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 SOUR @S1@
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.source_citations.len(), 1);
+        assert_eq!(indi.source_citations[0].source_xref, "@S1@");
+        assert_eq!(indi.source_citations[0].page, None);
+    }
+
+    #[test]
+    fn test_sour_and_repo_no_warnings() {
+        let input = "\
+0 HEAD
+0 @S1@ SOUR
+1 TITL Some Source
+0 @R1@ REPO
+1 NAME Some Repo
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        // SOUR and REPO should not produce warnings
+        assert!(
+            !tree.warnings.iter().any(|w| w.message.contains("SOUR") || w.message.contains("REPO")),
+            "SOUR/REPO should not produce warnings, but got: {:?}",
+            tree.warnings
+        );
+    }
+
+    #[test]
+    fn test_multiple_sources() {
+        let input = "\
+0 @S1@ SOUR
+1 TITL Source One
+0 @S2@ SOUR
+1 TITL Source Two
+0 @I1@ INDI
+1 NAME Bob /Jones/
+1 SOUR @S1@
+1 SOUR @S2@
+2 PAGE p. 10
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert_eq!(tree.sources.len(), 2);
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.source_citations.len(), 2);
+        assert_eq!(indi.source_citations[0].source_xref, "@S1@");
+        assert_eq!(indi.source_citations[1].source_xref, "@S2@");
+        assert_eq!(indi.source_citations[1].page, Some("p. 10".to_string()));
     }
 }

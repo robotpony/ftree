@@ -21,6 +21,7 @@ const HEADERS: &[&str] = &[
     "father",
     "mother",
     "spouses",
+    "sources",
 ];
 
 impl Renderer for CsvRenderer {
@@ -99,6 +100,7 @@ fn render_row(out: &mut String, indi: &Individual, tree: &FamilyTree) {
         csv_escape(&resolve_parent_name(indi, tree, ParentRole::Father)),
         csv_escape(&resolve_parent_name(indi, tree, ParentRole::Mother)),
         csv_escape(&resolve_spouse_names(indi, tree)),
+        csv_escape(&resolve_source_titles(indi, tree)),
     ];
 
     let _ = writeln!(out, "{}", fields.join(","));
@@ -143,6 +145,19 @@ fn resolve_spouse_names(indi: &Individual, tree: &FamilyTree) -> String {
         }
     }
     names.join("; ")
+}
+
+fn resolve_source_titles(indi: &Individual, tree: &FamilyTree) -> String {
+    let mut titles = Vec::new();
+    for citation in &indi.source_citations {
+        let title = tree
+            .sources
+            .get(&citation.source_xref)
+            .map(|s| s.display_title().to_string())
+            .unwrap_or_else(|| citation.source_xref.clone());
+        titles.push(title);
+    }
+    titles.join("; ")
 }
 
 /// Escape a value for CSV (RFC 4180).
@@ -230,7 +245,7 @@ mod tests {
         let first_line = csv.lines().next().unwrap();
         assert_eq!(
             first_line,
-            "xref,name,given,surname,sex,birth_date,birth_place,death_date,death_place,father,mother,spouses"
+            "xref,name,given,surname,sex,birth_date,birth_place,death_date,death_place,father,mother,spouses,sources"
         );
     }
 
@@ -287,6 +302,28 @@ mod tests {
         let john_line = csv.lines().find(|l| l.starts_with("@I1@")).unwrap();
         let fields: Vec<&str> = john_line.splitn(6, ',').collect();
         assert_eq!(fields[4], "M");
+    }
+
+    #[test]
+    fn test_csv_source_titles() {
+        let mut tree = make_test_tree();
+
+        let mut source = Source::new("@S1@".to_string());
+        source.title = Some("Birth Records".to_string());
+        tree.sources.insert("@S1@".to_string(), source);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .source_citations
+            .push(SourceCitation {
+                source_xref: "@S1@".to_string(),
+                page: Some("p. 42".to_string()),
+            });
+
+        let csv = render_csv(&tree);
+        let john_line = csv.lines().find(|l| l.starts_with("@I1@")).unwrap();
+        assert!(john_line.contains("Birth Records"));
     }
 
     #[test]

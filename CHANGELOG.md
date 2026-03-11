@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0 — Phase 4.5: Source and Repository Records
+
+Parse and render GEDCOM source (SOUR) and repository (REPO) records.
+
+**Features:**
+
+- Level-0 SOUR records parsed with TITL, AUTH, PUBL, ABBR, TEXT, and REPO pointer
+- Level-0 REPO records parsed with NAME
+- Inline source citations (SOUR @xref@ with PAGE) parsed within INDI records
+- `ftree check` now reports source and repository counts
+- CSV export includes a `sources` column (semicolon-separated source titles)
+- Markdown export includes a Sources section with titles and page references
+- `ftree list <file> sources` extracts cited source titles (supports `--unique`)
+- SOUR and REPO level-0 records no longer produce parser warnings
+
+**Tests:** 89 unit tests, 30 integration tests.
+
 ## 0.4.0 — Phase 4: ASCII Tree View
 
 Terminal-based family tree visualization with two layout modes.

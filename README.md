@@ -63,7 +63,7 @@ ftree export myfile.ged --format csv --output family.csv
 
 Extract specific field values from a GEDCOM file. Useful for quick lookups and piping to other tools.
 
-**Fields:** names, surnames, places, dates
+**Fields:** names, surnames, places, dates, sources
 
 **Options:**
 
@@ -78,6 +78,9 @@ ftree list myfile.ged surnames --unique
 
 # List all places mentioned (birth, death, marriage)
 ftree list myfile.ged places --unique
+
+# List cited sources
+ftree list myfile.ged sources --unique
 ```
 
 #### `ftree view <filename>`
@@ -128,6 +131,6 @@ ftree view myfile.ged --output tree.txt
 
 For the full GEDCOM format specification, including all record types, date formats, and ftree's implementation status per tag, see [docs/GEDCOM.md](docs/GEDCOM.md).
 
-**Currently supported:** HEAD, INDI, FAM, SUBM, TRLR, NAME (with GIVN/SURN), SEX, BIRT, DEAT, FAMS, FAMC, MARR, HUSB, WIFE, CHIL, DATE, PLAC, FILE, OBJE.
+**Currently supported:** HEAD, INDI, FAM, SUBM, TRLR, NAME (with GIVN/SURN), SEX, BIRT, DEAT, FAMS, FAMC, MARR, HUSB, WIFE, CHIL, DATE, PLAC, FILE, OBJE, SOUR (records and citations with PAGE), REPO.
 
-**Planned:** SOUR, NOTE, REPO, BURI, CHR, ADOP, DIV, OCCU, RESI, TITL, and more. See the specification for the full list.
+**Planned:** NOTE, BURI, CHR, ADOP, DIV, OCCU, RESI, TITL, and more. See the specification for the full list.

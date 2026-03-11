@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::family::Family;
 use super::individual::Individual;
+use super::types::{Repository, Source};
 
 /// File header metadata.
 #[derive(Debug, Clone, Default)]
@@ -39,6 +40,8 @@ pub struct FamilyTree {
     pub header: Header,
     pub individuals: HashMap<String, Individual>,
     pub families: HashMap<String, Family>,
+    pub sources: HashMap<String, Source>,
+    pub repositories: HashMap<String, Repository>,
     pub warnings: Vec<ParseWarning>,
 }
 
@@ -48,6 +51,8 @@ impl FamilyTree {
             header: Header::default(),
             individuals: HashMap::new(),
             families: HashMap::new(),
+            sources: HashMap::new(),
+            repositories: HashMap::new(),
             warnings: Vec::new(),
         }
     }

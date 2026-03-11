@@ -196,6 +196,27 @@ fn render_individual(
         }
     }
 
+    // Source citations
+    if !indi.source_citations.is_empty() {
+        out.push_str("## Sources\n\n");
+        for citation in &indi.source_citations {
+            let title = tree
+                .sources
+                .get(&citation.source_xref)
+                .map(|s| s.display_title())
+                .unwrap_or(&citation.source_xref);
+            match &citation.page {
+                Some(page) => {
+                    let _ = writeln!(out, "- {} ({})", title, page);
+                }
+                None => {
+                    let _ = writeln!(out, "- {}", title);
+                }
+            }
+        }
+        out.push('\n');
+    }
+
     // Media references
     let media_with_files: Vec<_> = indi
         .media
@@ -396,6 +417,55 @@ mod tests {
         assert!(content.contains("# John Smith\n"));
         assert!(content.contains("**Born:** 1 Jan 1900, Boston, MA, USA\n"));
         assert!(content.contains("**Died:** 31 Dec 1980, New York, NY, USA\n"));
+    }
+
+    #[test]
+    fn test_render_individual_sources() {
+        let mut tree = make_test_tree();
+
+        let mut source = Source::new("@S1@".to_string());
+        source.title = Some("Birth Records".to_string());
+        tree.sources.insert("@S1@".to_string(), source);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .source_citations
+            .push(SourceCitation {
+                source_xref: "@S1@".to_string(),
+                page: Some("p. 42".to_string()),
+            });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("## Sources"));
+        assert!(content.contains("Birth Records (p. 42)"));
+    }
+
+    #[test]
+    fn test_render_individual_sources_no_page() {
+        let mut tree = make_test_tree();
+
+        let mut source = Source::new("@S1@".to_string());
+        source.title = Some("Census Data".to_string());
+        tree.sources.insert("@S1@".to_string(), source);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .source_citations
+            .push(SourceCitation {
+                source_xref: "@S1@".to_string(),
+                page: None,
+            });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("- Census Data\n"));
     }
 
     #[test]

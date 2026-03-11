@@ -202,6 +202,83 @@ pub struct MediaRef {
     pub file: Option<String>,
 }
 
+/// A source record (level-0 SOUR).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Source {
+    /// GEDCOM xref ID, e.g. "@S1@".
+    pub xref: String,
+    /// Descriptive title (TITL).
+    pub title: Option<String>,
+    /// Author/originator (AUTH).
+    pub author: Option<String>,
+    /// Publication facts (PUBL).
+    pub publisher: Option<String>,
+    /// Short filed-by entry (ABBR).
+    pub abbreviation: Option<String>,
+    /// Text from source (TEXT).
+    pub text: Option<String>,
+    /// Xref to repository record (REPO pointer).
+    pub repository_xref: Option<String>,
+}
+
+impl Source {
+    pub fn new(xref: String) -> Self {
+        Source {
+            xref,
+            title: None,
+            author: None,
+            publisher: None,
+            abbreviation: None,
+            text: None,
+            repository_xref: None,
+        }
+    }
+
+    /// Display title, falling back to abbreviation or xref.
+    pub fn display_title(&self) -> &str {
+        self.title
+            .as_deref()
+            .or(self.abbreviation.as_deref())
+            .unwrap_or(&self.xref)
+    }
+}
+
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display_title())
+    }
+}
+
+/// A repository record (level-0 REPO).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Repository {
+    /// GEDCOM xref ID, e.g. "@R1@".
+    pub xref: String,
+    /// Name of the repository (NAME).
+    pub name: Option<String>,
+}
+
+impl Repository {
+    pub fn new(xref: String) -> Self {
+        Repository { xref, name: None }
+    }
+}
+
+impl fmt::Display for Repository {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name.as_deref().unwrap_or(&self.xref))
+    }
+}
+
+/// An inline source citation (SOUR @xref@ within INDI/FAM).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceCitation {
+    /// Xref to the level-0 SOUR record.
+    pub source_xref: String,
+    /// Page/location within the source (PAGE).
+    pub page: Option<String>,
+}
+
 /// Parse month abbreviation to 1-12.
 fn parse_month(s: &str) -> Option<u8> {
     match s.to_uppercase().as_str() {

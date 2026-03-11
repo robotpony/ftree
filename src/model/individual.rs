@@ -1,4 +1,4 @@
-use super::types::{Date, MediaRef, Place, Sex};
+use super::types::{Date, MediaRef, Place, Sex, SourceCitation};
 
 /// A personal name parsed from GEDCOM.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,6 +81,8 @@ pub struct Individual {
     pub family_as_child: Vec<String>,
     /// Multimedia references.
     pub media: Vec<MediaRef>,
+    /// Source citations.
+    pub source_citations: Vec<SourceCitation>,
 }
 
 impl Individual {
@@ -94,6 +96,7 @@ impl Individual {
             family_as_spouse: Vec::new(),
             family_as_child: Vec::new(),
             media: Vec::new(),
+            source_citations: Vec::new(),
         }
     }
 

@@ -7,6 +7,7 @@ pub enum ListField {
     Surnames,
     Places,
     Dates,
+    Sources,
 }
 
 impl ListField {
@@ -17,13 +18,14 @@ impl ListField {
             "surnames" | "surname" => Some(ListField::Surnames),
             "places" | "place" => Some(ListField::Places),
             "dates" | "date" => Some(ListField::Dates),
+            "sources" | "source" => Some(ListField::Sources),
             _ => None,
         }
     }
 
     /// Return all valid alias names for error messages.
     pub fn valid_aliases() -> &'static str {
-        "names, surnames, places, dates"
+        "names, surnames, places, dates, sources"
     }
 }
 
@@ -73,6 +75,16 @@ pub fn extract(tree: &FamilyTree, field: ListField) -> Vec<String> {
                     if let Some(ref date) = death.date {
                         values.push(date.raw.clone());
                     }
+                }
+            }
+            ListField::Sources => {
+                for citation in &indi.source_citations {
+                    let title = tree
+                        .sources
+                        .get(&citation.source_xref)
+                        .map(|s| s.display_title().to_string())
+                        .unwrap_or_else(|| citation.source_xref.clone());
+                    values.push(title);
                 }
             }
         }
@@ -199,6 +211,27 @@ mod tests {
         assert!(dates.contains(&"1 Jan 1900".to_string()));
         assert!(dates.contains(&"31 Dec 1980".to_string()));
         assert!(dates.contains(&"25 Dec 1925".to_string()));
+    }
+
+    #[test]
+    fn test_list_sources() {
+        let mut tree = make_test_tree();
+
+        let mut source = Source::new("@S1@".to_string());
+        source.title = Some("Birth Records".to_string());
+        tree.sources.insert("@S1@".to_string(), source);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .source_citations
+            .push(SourceCitation {
+                source_xref: "@S1@".to_string(),
+                page: None,
+            });
+
+        let sources = extract(&tree, ListField::Sources);
+        assert_eq!(sources, vec!["Birth Records"]);
     }
 
     #[test]

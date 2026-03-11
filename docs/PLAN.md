@@ -75,16 +75,24 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Exit criteria:** Trees render correctly for all sample files. Both layouts produce readable output.
 
-## Phase 4.5: Add missing tags
+## Phase 4.5: Source and Repository Records ✓
 
-Add the following tags:
+**Status:** Complete (v0.5.0)
 
-- MARR
-- REPO
-- SOUR
-- OBJE
+**Goal:** Parse SOUR and REPO records. MARR and OBJE were already supported from Phase 1.
 
-Ensure the tags are in the GEDCOM specification and add to the tool, and update the README.md
+**Deliverables:**
+
+1. ✓ Source record type (TITL, AUTH, PUBL, ABBR, TEXT, REPO pointer)
+2. ✓ Repository record type (NAME)
+3. ✓ Inline source citations within INDI records (SOUR @xref@ with PAGE)
+4. ✓ `check` command reports source and repository counts
+5. ✓ CSV export includes `sources` column
+6. ✓ Markdown export includes Sources section per individual
+7. ✓ `list` command supports `sources` field
+8. ✓ Tests: 12 new unit tests for parsing, 3 for rendering
+
+**Exit criteria:** Source and repository data parsed from sample files. All renderers include source information.
 
 ## Phase 5: Lint + Validation
 
