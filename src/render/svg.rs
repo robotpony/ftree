@@ -8,10 +8,10 @@ use crate::render::{RenderError, Renderer};
 use crate::render::ascii::find_root_families;
 
 // Layout constants
-const BOX_W: f32 = 164.0;
-const BOX_H: f32 = 52.0;
+const BOX_W: f32 = 200.0;
+const BOX_H: f32 = 68.0;
 const H_GAP: f32 = 24.0;   // gap between sibling subtrees and between couple boxes
-const V_GAP: f32 = 72.0;   // vertical gap between generation rows
+const V_GAP: f32 = 80.0;   // vertical gap between generation rows
 const PADDING: f32 = 24.0; // canvas edge padding
 
 /// SVG family tree renderer.
@@ -33,6 +33,7 @@ impl Renderer for SvgRenderer {
 struct SvgBox {
     x: f32,
     y: f32,
+    xref: String,
     name: String,
     dates: String,
     sex: Option<Sex>,
@@ -152,15 +153,20 @@ fn place(
         .cloned()
         .collect();
 
-    let children_total = if unvisited_children.is_empty() {
-        0.0
-    } else {
+    // Compute per-child widths with a shared cumulative visited clone so the
+    // individual measurements are consistent with each other (same approach
+    // that measure() uses internally), then derive children_total from them.
+    let child_widths: Vec<f32> = {
         let mut v = visited.clone();
-        let w: f32 = unvisited_children
+        unvisited_children
             .iter()
             .map(|c| measure(tree, c, &mut v))
-            .sum();
-        w + H_GAP * (unvisited_children.len() - 1) as f32
+            .collect()
+    };
+    let children_total = if child_widths.is_empty() {
+        0.0
+    } else {
+        child_widths.iter().sum::<f32>() + H_GAP * (child_widths.len() - 1) as f32
     };
 
     // Center couple and children relative to total_width
@@ -175,6 +181,7 @@ fn place(
         let spouse_x = couple_x + BOX_W + H_GAP;
         if !visited.contains(sx) {
             boxes.push(make_box(tree, sx, spouse_x, y));
+            visited.insert(sx.to_string());
         }
         // Couple connector (horizontal line between the two boxes)
         lines.push(SvgLine {
@@ -195,18 +202,10 @@ fn place(
         let children_offset = (total_width - children_total) / 2.0;
         let mut cx = start_x + children_offset;
 
-        // Collect child center x positions for bar drawing
+        // Compute child center x positions for bar and drop lines.
+        // Each center is the horizontal midpoint of the child's allocated width.
         let mut child_centers: Vec<f32> = Vec::new();
-        let mut child_widths: Vec<f32> = Vec::new();
-
-        for child_xref in &unvisited_children {
-            let mut v = visited.clone();
-            let w = measure(tree, child_xref, &mut v);
-            child_widths.push(w);
-        }
-
-        for (i, _) in unvisited_children.iter().enumerate() {
-            let w = child_widths[i];
+        for &w in &child_widths {
             child_centers.push(cx + w / 2.0);
             cx += w + H_GAP;
         }
@@ -284,6 +283,7 @@ fn make_box(tree: &FamilyTree, xref: &str, x: f32, y: f32) -> SvgBox {
     SvgBox {
         x,
         y,
+        xref: xref.to_string(),
         name,
         dates,
         sex: indi.and_then(|i| i.sex.clone()),
@@ -356,12 +356,15 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     // Styles
     out.push_str(
         r#"  <style>
-    .box-male    { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1.5; rx: 4; }
-    .box-female  { fill: #fce7f3; stroke: #ec4899; stroke-width: 1.5; rx: 4; }
-    .box-unknown { fill: #f3f4f6; stroke: #9ca3af; stroke-width: 1.5; rx: 4; }
-    .name        { font-family: sans-serif; font-size: 12px; font-weight: 600; fill: #111827; }
-    .dates       { font-family: sans-serif; font-size: 10px; fill: #6b7280; }
+    .box-male    { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1.5; }
+    .box-female  { fill: #fce7f3; stroke: #ec4899; stroke-width: 1.5; }
+    .box-unknown { fill: #f3f4f6; stroke: #9ca3af; stroke-width: 1.5; }
+    .name        { font-family: sans-serif; font-size: 13px; font-weight: 600; fill: #111827; }
+    .dates       { font-family: sans-serif; font-size: 11px; fill: #6b7280; }
     .connector   { stroke: #9ca3af; stroke-width: 1.5; fill: none; }
+    a:hover .box-male    { fill: #bfdbfe; }
+    a:hover .box-female  { fill: #fbcfe8; }
+    a:hover .box-unknown { fill: #e5e7eb; }
   </style>
 "#,
     );
@@ -375,7 +378,7 @@ pub fn render_svg(tree: &FamilyTree) -> String {
         );
     }
 
-    // Boxes
+    // Boxes (each wrapped in an anchor for HTML in-page navigation)
     for b in &all_boxes {
         let class = match &b.sex {
             Some(Sex::Male) => "box-male",
@@ -385,36 +388,41 @@ pub fn render_svg(tree: &FamilyTree) -> String {
 
         let name_escaped = xml_escape(&b.name);
         let dates_escaped = xml_escape(&b.dates);
+        let anchor_id = b.xref.replace('@', "");
+
+        let _ = writeln!(out, r##"  <a href="#{anchor_id}" style="text-decoration: none;">"##);
 
         // Box rect
         let _ = writeln!(
             out,
-            r#"  <rect class="{class}" x="{:.1}" y="{:.1}" width="{BOX_W}" height="{BOX_H}" rx="4"/>"#,
+            r#"    <rect class="{class}" x="{:.1}" y="{:.1}" width="{BOX_W}" height="{BOX_H}" rx="4"/>"#,
             b.x, b.y
         );
 
         // Name text (centered, upper half)
         let text_x = b.x + BOX_W / 2.0;
         let name_y = if b.dates.is_empty() {
-            b.y + BOX_H / 2.0 + 4.5
+            b.y + BOX_H / 2.0 + 5.0
         } else {
-            b.y + BOX_H / 2.0 - 4.0
+            b.y + BOX_H / 2.0 - 5.0
         };
         let _ = writeln!(
             out,
-            r#"  <text class="name" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
+            r#"    <text class="name" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
             text_x, name_y, name_escaped
         );
 
         // Dates text (centered, lower half)
         if !b.dates.is_empty() {
-            let dates_y = b.y + BOX_H / 2.0 + 13.0;
+            let dates_y = b.y + BOX_H / 2.0 + 14.0;
             let _ = writeln!(
                 out,
-                r#"  <text class="dates" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
+                r#"    <text class="dates" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
                 text_x, dates_y, dates_escaped
             );
         }
+
+        out.push_str("  </a>\n");
     }
 
     out.push_str("</svg>\n");

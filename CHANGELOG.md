@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.4
+
+- **SVG line alignment fix:** child subtree widths and the `children_total` used for centering are now computed from a single consistent measurement pass, preventing connector bars and drop lines from misaligning with boxes in trees with shared individuals.
+- **SVG cards are now larger:** box dimensions increased from 164×52 to 200×68, with slightly larger name (13px) and date (11px) text.
+- **SVG boxes link to HTML detail cards:** each person box is wrapped in `<a href="#{id}">` so that when the SVG is embedded in an HTML export (`--embed-svg`), clicking a box jumps to that person's detail card.
+- **SVG hover highlight:** boxes darken slightly on hover when linked.
+- **Fix:** spouse was not being added to the visited set after placement; corrected to prevent potential duplicate box rendering.
+
 ## 0.8.3
 
 - SVG export now stacks disconnected family groups vertically instead of horizontally, producing a taller, narrower diagram that fits browser viewports more naturally.
