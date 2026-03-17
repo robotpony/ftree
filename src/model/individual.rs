@@ -1,4 +1,4 @@
-use super::types::{Date, MediaRef, Place, Sex, SourceCitation};
+use super::types::{Date, MediaRef, NoteRef, Place, Sex, SourceCitation};
 
 /// A personal name parsed from GEDCOM.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,10 +71,24 @@ pub struct Individual {
     pub name: Option<Name>,
     /// Sex.
     pub sex: Option<Sex>,
-    /// Birth event.
+    /// Birth event (BIRT).
     pub birth: Option<Event>,
-    /// Death event.
+    /// Death event (DEAT).
     pub death: Option<Event>,
+    /// Burial event (BURI).
+    pub burial: Option<Event>,
+    /// Christening event (CHR).
+    pub christening: Option<Event>,
+    /// Adoption event (ADOP).
+    pub adoption: Option<Event>,
+    /// Residence event (RESI) — date/place of residence.
+    pub residence: Option<Event>,
+    /// Occupation (OCCU) — job or profession.
+    pub occupation: Option<String>,
+    /// Education (EDUC).
+    pub education: Option<String>,
+    /// Title of nobility or other title (TITL).
+    pub title: Option<String>,
     /// Xrefs to FAM records where this person is a spouse.
     pub family_as_spouse: Vec<String>,
     /// Xrefs to FAM records where this person is a child.
@@ -83,6 +97,8 @@ pub struct Individual {
     pub media: Vec<MediaRef>,
     /// Source citations.
     pub source_citations: Vec<SourceCitation>,
+    /// Notes (inline text or pointers to level-0 NOTE records).
+    pub notes: Vec<NoteRef>,
 }
 
 impl Individual {
@@ -93,10 +109,18 @@ impl Individual {
             sex: None,
             birth: None,
             death: None,
+            burial: None,
+            christening: None,
+            adoption: None,
+            residence: None,
+            occupation: None,
+            education: None,
+            title: None,
             family_as_spouse: Vec::new(),
             family_as_child: Vec::new(),
             media: Vec::new(),
             source_citations: Vec::new(),
+            notes: Vec::new(),
         }
     }
 

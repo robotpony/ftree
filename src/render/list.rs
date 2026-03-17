@@ -228,6 +228,7 @@ mod tests {
             .push(SourceCitation {
                 source_xref: "@S1@".to_string(),
                 page: None,
+                quality: None,
             });
 
         let sources = extract(&tree, ListField::Sources);

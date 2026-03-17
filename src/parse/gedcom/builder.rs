@@ -52,7 +52,23 @@ pub fn build(tokens: &[Token]) -> FamilyTree {
                 }
                 i = end;
             }
-            "SUBM" | "TRLR" | "SUBN" | "NOTE" => {
+            "OBJE" => {
+                let end = find_record_end(tokens, i);
+                if let Some(ref xref) = token.xref {
+                    let obj = build_multimedia_object(xref, &tokens[i..end]);
+                    tree.multimedia_objects.insert(xref.clone(), obj);
+                }
+                i = end;
+            }
+            "NOTE" => {
+                let end = find_record_end(tokens, i);
+                if let Some(ref xref) = token.xref {
+                    let note = build_note(xref, &tokens[i..end]);
+                    tree.notes.insert(xref.clone(), note);
+                }
+                i = end;
+            }
+            "SUBM" | "TRLR" | "SUBN" => {
                 i = find_record_end(tokens, i);
             }
             _ => {
@@ -183,6 +199,41 @@ fn build_individual(
                 let children = get_children(tokens, idx);
                 indi.death = Some(build_event(children));
             }
+            "BURI" => {
+                let children = get_children(tokens, idx);
+                indi.burial = Some(build_event(children));
+            }
+            "CHR" => {
+                let children = get_children(tokens, idx);
+                indi.christening = Some(build_event(children));
+            }
+            "ADOP" => {
+                let children = get_children(tokens, idx);
+                indi.adoption = Some(build_event(children));
+            }
+            "RESI" => {
+                let children = get_children(tokens, idx);
+                indi.residence = Some(build_event(children));
+            }
+            "OCCU" => {
+                if let Some(ref v) = token.value {
+                    indi.occupation = Some(v.clone());
+                }
+            }
+            "EDUC" => {
+                if let Some(ref v) = token.value {
+                    indi.education = Some(v.clone());
+                }
+            }
+            "TITL" => {
+                if let Some(ref v) = token.value {
+                    indi.title = Some(v.clone());
+                }
+            }
+            "NOTE" => {
+                let note_ref = build_note_ref(tokens, idx);
+                indi.notes.push(note_ref);
+            }
             "FAMS" => {
                 if let Some(ref v) = token.value {
                     indi.family_as_spouse.push(v.clone());
@@ -194,10 +245,19 @@ fn build_individual(
                 }
             }
             "OBJE" => {
-                let children = get_children(tokens, idx);
-                let file = find_first(children, 2, "FILE")
-                    .and_then(|t| t.value.clone());
-                indi.media.push(MediaRef { file });
+                // Pointer form: 1 OBJE @O1@ — references a top-level OBJE record
+                if token.value.as_ref().is_some_and(|v| v.starts_with('@')) {
+                    indi.media.push(MediaRef {
+                        file: None,
+                        xref: token.value.clone(),
+                    });
+                } else {
+                    // Inline form: FILE is a level-2 child
+                    let children = get_children(tokens, idx);
+                    let file = find_first(children, 2, "FILE")
+                        .and_then(|t| t.value.clone());
+                    indi.media.push(MediaRef { file, xref: None });
+                }
             }
             "SOUR" => {
                 // Inline source citation (pointer form: SOUR @S1@)
@@ -208,13 +268,12 @@ fn build_individual(
             }
             // Skip known but unhandled tags silently
             "CHAN" | "REFN" | "RIN" | "AFN" | "RFN" | "ALIA"
-            | "EVEN" | "BURI" | "CHR" | "BAPM" | "ADOP"
-            | "OCCU" | "RESI" | "EDUC" | "RELI" | "NATI"
-            | "TITL" | "CAST" | "DSCR" | "IDNO" | "NCHI"
-            | "NMR" | "PROP" | "SSN" | "FACT" | "NOTE"
+            | "EVEN" | "BAPM" | "RELI" | "NATI"
+            | "CAST" | "DSCR" | "IDNO" | "NCHI"
+            | "NMR" | "PROP" | "SSN" | "FACT"
             | "CREM" | "CONF" | "GRAD" | "RETI" | "WILL"
             | "PROB" | "CENS" | "EMIG" | "IMMI" | "NATU"
-            | "SUBM" | "ANCI" | "DESI" | "RESN" => {}
+            | "SUBM" | "ANCI" | "DESI" | "RESN" | "MARR" => {}
             tag if tag.starts_with('_') => {} // extension tags
             _ => {
                 warnings.push(ParseWarning {
@@ -255,9 +314,25 @@ fn build_family(xref: &str, tokens: &[Token]) -> Family {
                 let children = get_children(tokens, idx);
                 fam.marriage = Some(build_event(children));
             }
+            "DIV" => {
+                let children = get_children(tokens, idx);
+                fam.divorce = Some(build_event(children));
+            }
+            "ENGA" => {
+                let children = get_children(tokens, idx);
+                fam.engagement = Some(build_event(children));
+            }
+            "ANUL" => {
+                let children = get_children(tokens, idx);
+                fam.annulment = Some(build_event(children));
+            }
+            "NOTE" => {
+                let note_ref = build_note_ref(tokens, idx);
+                fam.notes.push(note_ref);
+            }
             // Skip known but unhandled family tags
-            "CHAN" | "REFN" | "RIN" | "NOTE" | "SOUR" | "OBJE"
-            | "DIV" | "DIVF" | "ENGA" | "ANUL" | "EVEN"
+            "CHAN" | "REFN" | "RIN" | "SOUR" | "OBJE"
+            | "DIVF" | "EVEN"
             | "NCHI" | "SUBM" | "RESN" | "RESI"
             | "MARB" | "MARC" | "MARL" | "MARS" | "CENS" => {}
             tag if tag.starts_with('_') => {}
@@ -266,6 +341,30 @@ fn build_family(xref: &str, tokens: &[Token]) -> Family {
     }
 
     fam
+}
+
+fn build_multimedia_object(xref: &str, tokens: &[Token]) -> MultimediaObject {
+    let mut obj = MultimediaObject::new(xref.to_string());
+
+    for (idx, token) in tokens.iter().enumerate() {
+        if token.level != 1 {
+            continue;
+        }
+
+        match token.tag.as_str() {
+            "FILE" => {
+                obj.file = token.value.clone();
+                // Look for TITL at level 2 under FILE
+                let children = get_children(tokens, idx);
+                if let Some(titl) = find_first(children, 2, "TITL") {
+                    obj.title = titl.value.clone();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    obj
 }
 
 fn build_source(xref: &str, tokens: &[Token]) -> Source {
@@ -332,10 +431,63 @@ fn build_source_citation(tokens: &[Token], parent_idx: usize) -> SourceCitation 
     let children = get_children(tokens, parent_idx);
     let page = find_first(children, 2, "PAGE")
         .and_then(|t| t.value.clone());
+    let quality = find_first(children, 2, "QUAY")
+        .and_then(|t| t.value.as_ref())
+        .and_then(|v| v.trim().parse::<u8>().ok());
 
     SourceCitation {
         source_xref: tokens[parent_idx].value.clone().unwrap_or_default(),
         page,
+        quality,
+    }
+}
+
+/// Collect multi-line text from a token value + CONT/CONC children.
+fn collect_text(tokens: &[Token], parent_idx: usize) -> String {
+    let mut result = tokens[parent_idx].value.clone().unwrap_or_default();
+    let children = get_children(tokens, parent_idx);
+    for token in children {
+        match token.tag.as_str() {
+            "CONT" => {
+                result.push('\n');
+                if let Some(ref v) = token.value {
+                    result.push_str(v);
+                }
+            }
+            "CONC" => {
+                if let Some(ref v) = token.value {
+                    result.push_str(v);
+                }
+            }
+            _ => {}
+        }
+    }
+    result
+}
+
+/// Build a top-level NOTE record.
+fn build_note(xref: &str, tokens: &[Token]) -> crate::model::Note {
+    // The text is on the level-0 NOTE token (index 0) plus CONT/CONC at level 1
+    let text = collect_text(tokens, 0);
+    crate::model::Note::new(xref.to_string(), text)
+}
+
+/// Build a NoteRef from an inline NOTE tag in an INDI or FAM record.
+fn build_note_ref(tokens: &[Token], parent_idx: usize) -> crate::model::NoteRef {
+    let value = tokens[parent_idx].value.clone();
+    // Pointer form: NOTE @N1@
+    if value.as_ref().is_some_and(|v| v.starts_with('@')) {
+        crate::model::NoteRef {
+            text: None,
+            xref: value,
+        }
+    } else {
+        // Inline form: collect text with CONT/CONC
+        let text = collect_text(tokens, parent_idx);
+        crate::model::NoteRef {
+            text: if text.is_empty() { None } else { Some(text) },
+            xref: None,
+        }
     }
 }
 
@@ -474,6 +626,79 @@ mod tests {
         assert_eq!(
             indi.media[0].file,
             Some("http://en.wikipedia.org/wiki/Bart_Simpson".to_string())
+        );
+    }
+
+    #[test]
+    fn test_obje_pointer_form() {
+        let input = "\
+0 @O1@ OBJE
+1 FILE
+2 TITL Portrait Photo
+0 @I1@ INDI
+1 NAME Jane /Smith/
+1 OBJE @O1@
+2 _PRIM Y
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert_eq!(tree.multimedia_objects.len(), 1);
+        let obj = &tree.multimedia_objects["@O1@"];
+        assert_eq!(obj.title, Some("Portrait Photo".to_string()));
+        assert_eq!(obj.file, None);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.media.len(), 1);
+        assert_eq!(indi.media[0].xref, Some("@O1@".to_string()));
+        assert_eq!(indi.media[0].file, None);
+    }
+
+    #[test]
+    fn test_obje_top_level_with_file() {
+        let input = "\
+0 @O1@ OBJE
+1 FILE http://example.com/photo.jpg
+2 TITL Family Photo
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let obj = &tree.multimedia_objects["@O1@"];
+        assert_eq!(obj.file, Some("http://example.com/photo.jpg".to_string()));
+        assert_eq!(obj.title, Some("Family Photo".to_string()));
+    }
+
+    #[test]
+    fn test_obje_no_warnings() {
+        let input = "\
+0 @O1@ OBJE
+1 FILE photo.jpg
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert!(
+            !tree.warnings.iter().any(|w| w.message.contains("OBJE")),
+            "Top-level OBJE should not produce warnings"
+        );
+    }
+
+    #[test]
+    fn test_marr_in_indi_no_warning() {
+        let input = "\
+0 @I1@ INDI
+1 NAME John /Smith/
+1 MARR
+2 DATE 1 Jan 1900
+2 PLAC Boston, MA
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert!(
+            !tree.warnings.iter().any(|w| w.message.contains("MARR")),
+            "MARR in INDI should be silently skipped, not warned"
         );
     }
 
@@ -631,5 +856,177 @@ mod tests {
         assert_eq!(indi.source_citations[0].source_xref, "@S1@");
         assert_eq!(indi.source_citations[1].source_xref, "@S2@");
         assert_eq!(indi.source_citations[1].page, Some("p. 10".to_string()));
+    }
+
+    #[test]
+    fn test_source_citation_quay() {
+        let input = "\
+0 @S1@ SOUR
+1 TITL Some Source
+0 @I1@ INDI
+1 NAME John /Doe/
+1 SOUR @S1@
+2 PAGE p. 5
+2 QUAY 3
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.source_citations[0].page, Some("p. 5".to_string()));
+        assert_eq!(indi.source_citations[0].quality, Some(3));
+    }
+
+    #[test]
+    fn test_individual_burial_and_christening() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Jane /Smith/
+1 CHR
+2 DATE 15 Jan 1900
+2 PLAC Springfield, IL
+1 BURI
+2 DATE 5 Jun 1985
+2 PLAC Oak Hill Cemetery
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        let chr = indi.christening.as_ref().unwrap();
+        assert_eq!(chr.date.as_ref().unwrap().year, Some(1900));
+        assert_eq!(chr.place.as_ref().unwrap().raw, "Springfield, IL");
+        let buri = indi.burial.as_ref().unwrap();
+        assert_eq!(buri.date.as_ref().unwrap().year, Some(1985));
+        assert_eq!(buri.place.as_ref().unwrap().raw, "Oak Hill Cemetery");
+    }
+
+    #[test]
+    fn test_individual_adoption_and_residence() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Bob /Jones/
+1 ADOP
+2 DATE 1920
+1 RESI
+2 DATE 1940
+2 PLAC Chicago, IL
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.adoption.as_ref().unwrap().date.as_ref().unwrap().year, Some(1920));
+        assert_eq!(indi.residence.as_ref().unwrap().date.as_ref().unwrap().year, Some(1940));
+        assert_eq!(indi.residence.as_ref().unwrap().place.as_ref().unwrap().raw, "Chicago, IL");
+    }
+
+    #[test]
+    fn test_individual_attributes() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Alice /Brown/
+1 OCCU Baker
+1 EDUC University of Chicago
+1 TITL Dr.
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.occupation, Some("Baker".to_string()));
+        assert_eq!(indi.education, Some("University of Chicago".to_string()));
+        assert_eq!(indi.title, Some("Dr.".to_string()));
+    }
+
+    #[test]
+    fn test_family_divorce_engagement_annulment() {
+        let input = "\
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 ENGA
+2 DATE 1 Jun 1925
+1 MARR
+2 DATE 25 Dec 1925
+1 DIV
+2 DATE 1950
+1 ANUL
+2 DATE 1951
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let fam = &tree.families["@F1@"];
+        assert_eq!(fam.engagement.as_ref().unwrap().date.as_ref().unwrap().year, Some(1925));
+        assert_eq!(fam.marriage.as_ref().unwrap().date.as_ref().unwrap().year, Some(1925));
+        assert_eq!(fam.divorce.as_ref().unwrap().date.as_ref().unwrap().year, Some(1950));
+        assert_eq!(fam.annulment.as_ref().unwrap().date.as_ref().unwrap().year, Some(1951));
+    }
+
+    #[test]
+    fn test_note_record_inline() {
+        let input = "\
+0 @N1@ NOTE This is line one.
+1 CONT This is line two.
+1 CONC Continued on same line.
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert_eq!(tree.notes.len(), 1);
+        let note = &tree.notes["@N1@"];
+        assert_eq!(note.text, "This is line one.\nThis is line two.Continued on same line.");
+    }
+
+    #[test]
+    fn test_inline_note_in_individual() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Bob /Jones/
+1 NOTE He was a sailor.
+2 CONT Also an adventurer.
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.notes.len(), 1);
+        assert_eq!(indi.notes[0].text, Some("He was a sailor.\nAlso an adventurer.".to_string()));
+        assert_eq!(indi.notes[0].xref, None);
+    }
+
+    #[test]
+    fn test_pointer_note_in_individual() {
+        let input = "\
+0 @N1@ NOTE A shared note.
+0 @I1@ INDI
+1 NAME Bob /Jones/
+1 NOTE @N1@
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.notes.len(), 1);
+        assert_eq!(indi.notes[0].xref, Some("@N1@".to_string()));
+        assert_eq!(indi.notes[0].text, None);
+        assert_eq!(tree.notes["@N1@"].text, "A shared note.");
+    }
+
+    #[test]
+    fn test_note_in_family() {
+        let input = "\
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 NOTE Married in secret.
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let fam = &tree.families["@F1@"];
+        assert_eq!(fam.notes.len(), 1);
+        assert_eq!(fam.notes[0].text, Some("Married in secret.".to_string()));
     }
 }

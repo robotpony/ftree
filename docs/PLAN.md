@@ -94,32 +94,41 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Exit criteria:** Source and repository data parsed from sample files. All renderers include source information.
 
-## Phase 5: Lint + Validation
+## Phase 5: Lint + Validation ✓
+
+**Status:** Complete (v0.6.0)
 
 **Goal:** Data quality checking beyond basic statistics.
 
 **Deliverables:**
 
-1. Lint rule framework
-2. Rules: dangling xref references, duplicate individuals, missing required fields, date inconsistencies (death before birth, etc.)
-3. Enhanced `ftree check` output with categorized warnings
-4. Tests for each lint rule
+1. ✓ Lint rule framework (`src/lint/mod.rs`) with `LintWarning` and `LintCategory` types
+2. ✓ Rules: dangling FAMS/FAMC/HUSB/WIFE/CHIL/SOUR/OBJE/REPO cross-references; death before birth; marriage before birth of spouse
+3. ✓ Enhanced `ftree check` output: lint issues displayed separately from parse warnings
+4. ✓ Tests: 14 unit tests covering each lint rule
+
+**Not implemented:** Duplicate individual detection (deferred; high false-positive risk without fuzzy matching infrastructure).
 
 **Exit criteria:** `check` command identifies known issues in sample files.
 
-## Phase 6: Extended GEDCOM Support
+## Phase 6: Extended GEDCOM Support ✓
+
+**Status:** Complete (v0.7.0)
 
 **Goal:** Support additional GEDCOM tags from the specification.
 
 **Deliverables:**
 
-1. Source records (SOUR, with PAGE, QUAY, AUTH, PUBL)
-2. Note records (NOTE, with CONT/CONC)
-3. Additional individual events (BURI, CHR, ADOP, OCCU, RESI, EDUC, TITL)
-4. Additional family events (DIV, ENGA, ANUL)
-5. Update model, renderers, and tests
+1. ✓ Source citation quality field (QUAY) on SourceCitation
+2. ✓ Note records (level-0 NOTE with CONT/CONC); inline NOTE in INDI/FAM (inline text + pointer form)
+3. ✓ Additional individual events: BURI, CHR, ADOP, RESI (with DATE/PLAC)
+4. ✓ Individual attributes: OCCU, EDUC, TITL (string values)
+5. ✓ Additional family events: DIV, ENGA, ANUL (with DATE/PLAC)
+6. ✓ Markdown renderer: burial, christening, adoption, residence, occupation, education, title, notes, divorce, engagement, annulment
+7. ✓ CSV renderer: burial_date, burial_place, occupation columns
+8. ✓ Tests: 13 new unit tests (builder + renderers)
 
-**Priority order:** SOUR (appears in sample files) → NOTE → BURI/CHR → OCCU/RESI/TITL → DIV → remaining
+**Exit criteria:** New tags parsed from sample files. All renderers include new fields.
 
 ## Phase 7: .inftree Binary Format
 
@@ -134,16 +143,21 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Dependency:** Requires access to .inftree file format documentation or sample files for reverse engineering.
 
-## Phase 8: SVG + HTML Output
+## Phase 8: SVG + HTML Output ✓
+
+**Status:** Complete (v0.8.0)
 
 **Goal:** Visual output formats.
 
 **Deliverables:**
 
-1. SVG renderer (tree layout with configurable styling)
-2. HTML renderer (standalone page with embedded CSS, possibly interactive)
-3. CSS theme support
-4. `ftree export <file> --format svg|html` commands
+1. ✓ SVG renderer — recursive box layout; couples side-by-side with connector; children below with bar-and-drop lines; sex-coloured boxes (blue/pink/grey); birth/death years per box
+2. ✓ HTML renderer — standalone page with embedded CSS; summary table (name, sex, birth, death, father, mother) with live search; individual detail cards (all vitals, relationships, sources, notes); inter-individual hyperlinks
+3. ✓ CSS theme support — light and dark themes via `prefers-color-scheme`
+4. ✓ `ftree export <file> --format svg` and `--format html` commands
+5. ✓ Tests: 9 SVG unit tests, 13 HTML unit tests
+
+**Exit criteria:** SVG and HTML files open in browsers; all individuals present with correct data.
 
 ## Not Planned (Out of Scope)
 

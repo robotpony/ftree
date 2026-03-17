@@ -23,7 +23,7 @@ enum Commands {
         /// Path to the GEDCOM file
         file: PathBuf,
 
-        /// Output format (md, csv)
+        /// Output format (md, csv, svg, html)
         #[arg(long, default_value = "md")]
         format: String,
 
@@ -103,8 +103,36 @@ fn main() -> Result<()> {
                         output_file.display()
                     );
                 }
+                "svg" => {
+                    let output_file = output.unwrap_or_else(|| {
+                        file.with_extension("svg")
+                    });
+                    let renderer = ftree::render::svg::SvgRenderer;
+                    renderer
+                        .render(&tree, &output_file)
+                        .with_context(|| format!("Failed to export to {}", output_file.display()))?;
+                    println!(
+                        "Exported {} individuals to {}",
+                        tree.individuals.len(),
+                        output_file.display()
+                    );
+                }
+                "html" => {
+                    let output_file = output.unwrap_or_else(|| {
+                        file.with_extension("html")
+                    });
+                    let renderer = ftree::render::html::HtmlRenderer;
+                    renderer
+                        .render(&tree, &output_file)
+                        .with_context(|| format!("Failed to export to {}", output_file.display()))?;
+                    println!(
+                        "Exported {} individuals to {}",
+                        tree.individuals.len(),
+                        output_file.display()
+                    );
+                }
                 other => {
-                    anyhow::bail!("Unsupported format: {}. Available: md, csv", other);
+                    anyhow::bail!("Unsupported format: {}. Available: md, csv, svg, html", other);
                 }
             }
             Ok(())
@@ -219,9 +247,18 @@ fn print_check_report(tree: &ftree::model::FamilyTree, path: &std::path::Path) {
     println!("Missing death dates: {}", missing_death);
     println!("Missing sex:         {}", missing_sex);
 
+    let lint_warnings = ftree::lint::lint(tree);
+    if !lint_warnings.is_empty() {
+        println!();
+        println!("Lint issues: {}", lint_warnings.len());
+        for warning in &lint_warnings {
+            println!("  - {}", warning);
+        }
+    }
+
     if !tree.warnings.is_empty() {
         println!();
-        println!("Warnings: {}", tree.warnings.len());
+        println!("Parse warnings: {}", tree.warnings.len());
         for warning in &tree.warnings {
             println!("  - {}", warning);
         }

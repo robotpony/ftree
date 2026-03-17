@@ -2,7 +2,7 @@
 
 Read and convert GEDCOM (genealogy) files to Markdown. Generates interlinked markdown files for use in Obsidian, as well as CSV.
 
-`ftree` reads a .GED file into an internal object graph, and is able to write out files based on that internal representation. 
+`ftree` reads a .GED file into an internal object graph, and is able to write out files based on that internal representation.
 
 ## Motivation
 
@@ -34,7 +34,7 @@ ftree export <filename> [options]
 
 #### `ftree check <filename>`
 
-Check a GEDCOM file for validity and missing data. Reports individual/family counts, missing fields, and parser warnings.
+Check a GEDCOM file for validity and data quality. Reports individual/family counts, missing fields, lint issues (dangling cross-references, date inconsistencies), and parser warnings.
 
 ```bash
 ftree check myfile.ged
@@ -42,12 +42,12 @@ ftree check myfile.ged
 
 #### `ftree export <filename>`
 
-Export family tree to Markdown or CSV.
+Export family tree to Markdown, CSV, SVG, or HTML.
 
 **Options:**
 
-- `--format md|csv` — Output format (default: md)
-- `--output`, `-o` — Output path (directory for md, file for csv)
+- `--format md|csv|svg|html` — Output format (default: md)
+- `--output`, `-o` — Output path (directory for md, file for all others)
 
 ```bash
 # Export to Markdown (one file per person)
@@ -57,6 +57,12 @@ ftree export myfile.ged --output ~/obsidian-vault/family
 # Export to CSV
 ftree export myfile.ged --format csv
 ftree export myfile.ged --format csv --output family.csv
+
+# Export to SVG (family tree diagram)
+ftree export myfile.ged --format svg
+
+# Export to HTML (standalone viewer with search and dark mode)
+ftree export myfile.ged --format html
 ```
 
 #### `ftree list <filename> <field>`
@@ -114,9 +120,9 @@ ftree view myfile.ged --output tree.txt
 
 - Markdown (Obsidian/Hugo compatible, with front-matter)
 - CSV
-- ASCII tree view
-- SVG (planned)
-- HTML (planned)
+- ASCII tree view (horizontal and top-down)
+- SVG (family tree diagram with sex-coloured boxes)
+- HTML (standalone viewer with search, dark mode, individual detail cards)
 
 ## Architecture
 
@@ -131,6 +137,6 @@ ftree view myfile.ged --output tree.txt
 
 For the full GEDCOM format specification, including all record types, date formats, and ftree's implementation status per tag, see [docs/GEDCOM.md](docs/GEDCOM.md).
 
-**Currently supported:** HEAD, INDI, FAM, SUBM, TRLR, NAME (with GIVN/SURN), SEX, BIRT, DEAT, FAMS, FAMC, MARR, HUSB, WIFE, CHIL, DATE, PLAC, FILE, OBJE, SOUR (records and citations with PAGE), REPO.
+**Currently supported:** HEAD, INDI, FAM, SUBM, TRLR, NAME (with GIVN/SURN), SEX, BIRT, DEAT, BURI, CHR, ADOP, RESI, FAMS, FAMC, MARR, DIV, ENGA, ANUL, HUSB, WIFE, CHIL, DATE, PLAC, FILE, OBJE (inline and pointer-form, with TITL), SOUR (records and citations with PAGE/QUAY), REPO, NOTE (records and inline, with CONT/CONC), OCCU, EDUC, TITL.
 
-**Planned:** NOTE, BURI, CHR, ADOP, DIV, OCCU, RESI, TITL, and more. See the specification for the full list.
+**Planned:** Additional attribute tags, CENS, EMIG, IMMI, and more. See [docs/GEDCOM.md](docs/GEDCOM.md) for the full list.

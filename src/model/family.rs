@@ -1,4 +1,5 @@
 use super::individual::Event;
+use super::types::NoteRef;
 
 /// A family record linking spouses and children.
 #[derive(Debug, Clone)]
@@ -11,8 +12,16 @@ pub struct Family {
     pub wife: Option<String>,
     /// Xrefs to child INDI records.
     pub children: Vec<String>,
-    /// Marriage event.
+    /// Marriage event (MARR).
     pub marriage: Option<Event>,
+    /// Divorce event (DIV).
+    pub divorce: Option<Event>,
+    /// Engagement event (ENGA).
+    pub engagement: Option<Event>,
+    /// Annulment event (ANUL).
+    pub annulment: Option<Event>,
+    /// Notes (inline text or pointers to level-0 NOTE records).
+    pub notes: Vec<NoteRef>,
 }
 
 impl Family {
@@ -23,6 +32,10 @@ impl Family {
             wife: None,
             children: Vec::new(),
             marriage: None,
+            divorce: None,
+            engagement: None,
+            annulment: None,
+            notes: Vec::new(),
         }
     }
 }

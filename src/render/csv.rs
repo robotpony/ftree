@@ -18,6 +18,9 @@ const HEADERS: &[&str] = &[
     "birth_place",
     "death_date",
     "death_place",
+    "burial_date",
+    "burial_place",
+    "occupation",
     "father",
     "mother",
     "spouses",
@@ -97,6 +100,21 @@ fn render_row(out: &mut String, indi: &Individual, tree: &FamilyTree) {
                 .map(|p| p.raw.as_str())
                 .unwrap_or(""),
         ),
+        csv_escape(
+            indi.burial
+                .as_ref()
+                .and_then(|e| e.date.as_ref())
+                .map(|d| d.raw.as_str())
+                .unwrap_or(""),
+        ),
+        csv_escape(
+            indi.burial
+                .as_ref()
+                .and_then(|e| e.place.as_ref())
+                .map(|p| p.raw.as_str())
+                .unwrap_or(""),
+        ),
+        csv_escape(indi.occupation.as_deref().unwrap_or("")),
         csv_escape(&resolve_parent_name(indi, tree, ParentRole::Father)),
         csv_escape(&resolve_parent_name(indi, tree, ParentRole::Mother)),
         csv_escape(&resolve_spouse_names(indi, tree)),
@@ -245,7 +263,7 @@ mod tests {
         let first_line = csv.lines().next().unwrap();
         assert_eq!(
             first_line,
-            "xref,name,given,surname,sex,birth_date,birth_place,death_date,death_place,father,mother,spouses,sources"
+            "xref,name,given,surname,sex,birth_date,birth_place,death_date,death_place,burial_date,burial_place,occupation,father,mother,spouses,sources"
         );
     }
 
@@ -319,6 +337,7 @@ mod tests {
             .push(SourceCitation {
                 source_xref: "@S1@".to_string(),
                 page: Some("p. 42".to_string()),
+                quality: None,
             });
 
         let csv = render_csv(&tree);

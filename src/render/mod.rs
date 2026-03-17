@@ -1,7 +1,9 @@
 pub mod ascii;
 pub mod csv;
+pub mod html;
 pub mod list;
 pub mod markdown;
+pub mod svg;
 
 use std::path::Path;
 use thiserror::Error;

@@ -3,7 +3,7 @@ use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::Path;
 
-use crate::model::{Event, FamilyTree, Individual, Sex};
+use crate::model::{Event, FamilyTree, Individual, NoteRef, Sex};
 use crate::render::{RenderError, Renderer};
 
 /// Renders each individual as a separate Markdown file with YAML front-matter
@@ -136,12 +136,38 @@ fn render_individual(
     let _ = writeln!(out, "# {}\n", display_name);
 
     // Vital information
-    if indi.birth.is_some() || indi.death.is_some() {
+    let has_vital = indi.birth.is_some() || indi.death.is_some()
+        || indi.christening.is_some() || indi.burial.is_some()
+        || indi.adoption.is_some() || indi.residence.is_some()
+        || indi.occupation.is_some() || indi.education.is_some()
+        || indi.title.is_some();
+    if has_vital {
         if let Some(ref birth) = indi.birth {
             let _ = write!(out, "**Born:** {}\n", format_event(birth));
         }
+        if let Some(ref chr) = indi.christening {
+            let _ = write!(out, "**Christened:** {}\n", format_event(chr));
+        }
+        if let Some(ref adop) = indi.adoption {
+            let _ = write!(out, "**Adopted:** {}\n", format_event(adop));
+        }
         if let Some(ref death) = indi.death {
             let _ = write!(out, "**Died:** {}\n", format_event(death));
+        }
+        if let Some(ref buri) = indi.burial {
+            let _ = write!(out, "**Buried:** {}\n", format_event(buri));
+        }
+        if let Some(ref resi) = indi.residence {
+            let _ = write!(out, "**Residence:** {}\n", format_event(resi));
+        }
+        if let Some(ref occu) = indi.occupation {
+            let _ = write!(out, "**Occupation:** {}\n", occu);
+        }
+        if let Some(ref educ) = indi.education {
+            let _ = write!(out, "**Education:** {}\n", educ);
+        }
+        if let Some(ref titl) = indi.title {
+            let _ = write!(out, "**Title:** {}\n", titl);
         }
         out.push('\n');
     }
@@ -178,8 +204,17 @@ fn render_individual(
                 if let Some(spouse) = spouse_xref {
                     out.push_str("## Spouse\n\n");
                     let _ = writeln!(out, "- {}", wikilink(spouse, name_map));
+                    if let Some(ref engagement) = fam.engagement {
+                        let _ = writeln!(out, "- **Engaged:** {}", format_event(engagement));
+                    }
                     if let Some(ref marriage) = fam.marriage {
                         let _ = writeln!(out, "- **Married:** {}", format_event(marriage));
+                    }
+                    if let Some(ref divorce) = fam.divorce {
+                        let _ = writeln!(out, "- **Divorced:** {}", format_event(divorce));
+                    }
+                    if let Some(ref annulment) = fam.annulment {
+                        let _ = writeln!(out, "- **Annulled:** {}", format_event(annulment));
                     }
                     out.push('\n');
                 }
@@ -218,24 +253,70 @@ fn render_individual(
     }
 
     // Media references
-    let media_with_files: Vec<_> = indi
-        .media
-        .iter()
-        .filter_map(|m| m.file.as_ref())
-        .collect();
-    if !media_with_files.is_empty() {
+    let has_media = indi.media.iter().any(|m| {
+        m.file.is_some()
+            || m.xref
+                .as_ref()
+                .is_some_and(|x| tree.multimedia_objects.contains_key(x))
+    });
+    if has_media {
         out.push_str("## Media\n\n");
-        for file in media_with_files {
-            if file.starts_with("http://") || file.starts_with("https://") {
-                let _ = writeln!(out, "- [{}]({})", file, file);
-            } else {
-                let _ = writeln!(out, "- {}", file);
+        for media in &indi.media {
+            let file = media.file.as_deref().or_else(|| {
+                media
+                    .xref
+                    .as_ref()
+                    .and_then(|x| tree.multimedia_objects.get(x))
+                    .and_then(|obj| obj.file.as_deref())
+            });
+            let title = media.xref.as_ref().and_then(|x| {
+                tree.multimedia_objects
+                    .get(x)
+                    .and_then(|obj| obj.title.as_deref())
+            });
+
+            match (file, title) {
+                (Some(f), _) if f.starts_with("http://") || f.starts_with("https://") => {
+                    let _ = writeln!(out, "- [{}]({})", f, f);
+                }
+                (Some(f), _) => {
+                    let _ = writeln!(out, "- {}", f);
+                }
+                (None, Some(t)) => {
+                    let _ = writeln!(out, "- {}", t);
+                }
+                (None, None) => {}
             }
         }
         out.push('\n');
     }
 
+    // Notes
+    if !indi.notes.is_empty() {
+        out.push_str("## Notes\n\n");
+        for note in &indi.notes {
+            let text = resolve_note_text(note, tree);
+            if let Some(text) = text {
+                for line in text.lines() {
+                    let _ = writeln!(out, "{}", line);
+                }
+                out.push('\n');
+            }
+        }
+    }
+
     out
+}
+
+/// Resolve note text from either inline content or a pointer to a top-level NOTE record.
+fn resolve_note_text<'a>(note: &'a NoteRef, tree: &'a FamilyTree) -> Option<&'a str> {
+    if let Some(ref text) = note.text {
+        return Some(text.as_str());
+    }
+    if let Some(ref xref) = note.xref {
+        return tree.notes.get(xref).map(|n| n.text.as_str());
+    }
+    None
 }
 
 fn write_yaml_field(out: &mut String, key: &str, value: &str) {
@@ -420,6 +501,62 @@ mod tests {
     }
 
     #[test]
+    fn test_render_individual_media_pointer_with_title() {
+        let mut tree = make_test_tree();
+
+        let obj = MultimediaObject {
+            xref: "@O1@".to_string(),
+            file: None,
+            title: Some("Portrait Photo".to_string()),
+        };
+        tree.multimedia_objects.insert("@O1@".to_string(), obj);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .media
+            .push(MediaRef {
+                file: None,
+                xref: Some("@O1@".to_string()),
+            });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("## Media"));
+        assert!(content.contains("- Portrait Photo\n"));
+    }
+
+    #[test]
+    fn test_render_individual_media_pointer_with_file() {
+        let mut tree = make_test_tree();
+
+        let obj = MultimediaObject {
+            xref: "@O1@".to_string(),
+            file: Some("http://example.com/photo.jpg".to_string()),
+            title: None,
+        };
+        tree.multimedia_objects.insert("@O1@".to_string(), obj);
+
+        tree.individuals
+            .get_mut("@I1@")
+            .unwrap()
+            .media
+            .push(MediaRef {
+                file: None,
+                xref: Some("@O1@".to_string()),
+            });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("## Media"));
+        assert!(content.contains("- [http://example.com/photo.jpg](http://example.com/photo.jpg)\n"));
+    }
+
+    #[test]
     fn test_render_individual_sources() {
         let mut tree = make_test_tree();
 
@@ -434,6 +571,7 @@ mod tests {
             .push(SourceCitation {
                 source_xref: "@S1@".to_string(),
                 page: Some("p. 42".to_string()),
+                quality: None,
             });
 
         let name_map = build_filename_map(&tree);
@@ -459,6 +597,7 @@ mod tests {
             .push(SourceCitation {
                 source_xref: "@S1@".to_string(),
                 page: None,
+                quality: None,
             });
 
         let name_map = build_filename_map(&tree);
@@ -493,5 +632,92 @@ mod tests {
 
         assert_eq!(wikilink("@I1@", &map), "[[John Smith]]");
         assert_eq!(wikilink("@I99@", &map), "@I99@");
+    }
+
+    #[test]
+    fn test_render_burial_and_occupation() {
+        let mut tree = make_test_tree();
+        let john = tree.individuals.get_mut("@I1@").unwrap();
+        john.burial = Some(Event {
+            date: Some(Date::parse("5 Jan 1981")),
+            place: Some(Place::new("Forest Hills Cemetery")),
+        });
+        john.occupation = Some("Engineer".to_string());
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("**Buried:** 5 Jan 1981, Forest Hills Cemetery\n"));
+        assert!(content.contains("**Occupation:** Engineer\n"));
+    }
+
+    #[test]
+    fn test_render_christening_and_title() {
+        let mut tree = make_test_tree();
+        let john = tree.individuals.get_mut("@I1@").unwrap();
+        john.christening = Some(Event {
+            date: Some(Date::parse("10 Jan 1900")),
+            place: None,
+        });
+        john.title = Some("Sir".to_string());
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("**Christened:** 10 Jan 1900\n"));
+        assert!(content.contains("**Title:** Sir\n"));
+    }
+
+    #[test]
+    fn test_render_divorce_in_spouse_section() {
+        let mut tree = make_test_tree();
+        tree.families.get_mut("@F1@").unwrap().divorce = Some(Event {
+            date: Some(Date::parse("1960")),
+            place: None,
+        });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("**Divorced:** 1960\n"));
+    }
+
+    #[test]
+    fn test_render_inline_notes() {
+        let mut tree = make_test_tree();
+        tree.individuals.get_mut("@I1@").unwrap().notes.push(NoteRef {
+            text: Some("He emigrated from Ireland.".to_string()),
+            xref: None,
+        });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("## Notes\n\n"));
+        assert!(content.contains("He emigrated from Ireland."));
+    }
+
+    #[test]
+    fn test_render_pointer_note_resolved() {
+        let mut tree = make_test_tree();
+        tree.notes.insert(
+            "@N1@".to_string(),
+            Note::new("@N1@".to_string(), "A referenced note.".to_string()),
+        );
+        tree.individuals.get_mut("@I1@").unwrap().notes.push(NoteRef {
+            text: None,
+            xref: Some("@N1@".to_string()),
+        });
+
+        let name_map = build_filename_map(&tree);
+        let john = &tree.individuals["@I1@"];
+        let content = render_individual(john, &tree, &name_map);
+
+        assert!(content.contains("## Notes\n\n"));
+        assert!(content.contains("A referenced note."));
     }
 }

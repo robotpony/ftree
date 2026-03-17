@@ -196,10 +196,38 @@ impl fmt::Display for Place {
     }
 }
 
-/// A multimedia reference.
+/// A multimedia reference in an individual or family record.
+///
+/// Either an inline reference (file is populated directly) or a pointer
+/// to a top-level OBJE record (xref is populated, file resolved via
+/// FamilyTree::multimedia_objects).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaRef {
+    /// File path or URL, from inline OBJE.
     pub file: Option<String>,
+    /// Xref to a top-level OBJE record, from pointer-form OBJE.
+    pub xref: Option<String>,
+}
+
+/// A top-level multimedia object record (level-0 OBJE).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultimediaObject {
+    /// GEDCOM xref ID, e.g. "@O1@".
+    pub xref: String,
+    /// File path or URL (FILE value).
+    pub file: Option<String>,
+    /// Descriptive title (TITL under FILE).
+    pub title: Option<String>,
+}
+
+impl MultimediaObject {
+    pub fn new(xref: String) -> Self {
+        MultimediaObject {
+            xref,
+            file: None,
+            title: None,
+        }
+    }
 }
 
 /// A source record (level-0 SOUR).
@@ -277,6 +305,34 @@ pub struct SourceCitation {
     pub source_xref: String,
     /// Page/location within the source (PAGE).
     pub page: Option<String>,
+    /// Data quality assessment (QUAY): 0=unreliable, 1=questionable, 2=secondary, 3=primary.
+    pub quality: Option<u8>,
+}
+
+/// A note record (level-0 NOTE).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Note {
+    /// GEDCOM xref ID, e.g. "@N1@".
+    pub xref: String,
+    /// Full text of the note, with CONT/CONC lines merged.
+    pub text: String,
+}
+
+impl Note {
+    pub fn new(xref: String, text: String) -> Self {
+        Note { xref, text }
+    }
+}
+
+/// A note reference within an individual or family record.
+///
+/// Either inline text (parsed with CONT/CONC) or a pointer to a level-0 NOTE record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoteRef {
+    /// Inline note text, if not a pointer.
+    pub text: Option<String>,
+    /// Xref to a top-level NOTE record.
+    pub xref: Option<String>,
 }
 
 /// Parse month abbreviation to 1-12.
