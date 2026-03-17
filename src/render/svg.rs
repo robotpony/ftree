@@ -104,6 +104,26 @@ fn measure(tree: &FamilyTree, xref: &str, visited: &mut HashSet<String>) -> f32 
 
 /// Place all boxes and lines for the subtree rooted at `xref` starting at (start_x, y).
 /// Returns the total width consumed.
+///
+/// # Visited-set semantics
+///
+/// `visited` is a shared mutable set that grows throughout the entire placement
+/// pass.  It serves two roles:
+///
+/// 1. **Cycle guard** — if `xref` is already in `visited`, the function returns
+///    immediately (zero width), preventing infinite recursion in malformed trees
+///    where a descendant references an ancestor.
+///
+/// 2. **De-duplication** — an individual that appears in multiple families (e.g.
+///    a parent who remarries) is placed only the first time it is encountered;
+///    subsequent encounters are skipped.
+///
+/// `measure()` also uses a visited set, but it must **not** pollute the outer
+/// `visited` — otherwise siblings measured later would see the previous
+/// sibling's subtree as already-visited and return widths that are too small.
+/// That is why `total_width` is measured with a **cloned** snapshot of
+/// `visited` at the start of each `place()` call, while the placement itself
+/// mutates the real `visited`.
 fn place(
     boxes: &mut Vec<SvgBox>,
     lines: &mut Vec<SvgLine>,
@@ -117,6 +137,8 @@ fn place(
         return 0.0;
     }
 
+    // Clone visited so measure() can explore the subtree width without
+    // marking those individuals as placed in the real pass.
     let total_width = {
         let mut v = visited.clone();
         measure(tree, xref, &mut v)
@@ -641,5 +663,75 @@ mod tests {
 
         assert_eq!(boxes.len(), 3, "should place 3 boxes (John, Jane, Robert)");
         assert!(!lines.is_empty(), "should have connector lines");
+    }
+
+    /// A cycle in the family.children lists (I1 → I2 → I1) must not cause
+    /// an infinite loop.  The visited set should short-circuit the recursion.
+    #[test]
+    fn test_svg_cycle_no_infinite_loop() {
+        let mut tree = FamilyTree::new();
+
+        // I1 has no FAMC so is treated as a root.
+        let mut i1 = Individual::new("@I1@".to_string());
+        i1.name = Some(Name::from_gedcom("Alice /Smith/"));
+        i1.family_as_spouse.push("@F1@".to_string());
+
+        let mut i2 = Individual::new("@I2@".to_string());
+        i2.name = Some(Name::from_gedcom("Bob /Jones/"));
+        i2.family_as_child.push("@F1@".to_string());
+        i2.family_as_spouse.push("@F2@".to_string());
+
+        let mut f1 = Family::new("@F1@".to_string());
+        f1.husband = Some("@I1@".to_string());
+        f1.children.push("@I2@".to_string());
+
+        // F2 lists I1 as a child of I2 — a cycle in the data.
+        let mut f2 = Family::new("@F2@".to_string());
+        f2.husband = Some("@I2@".to_string());
+        f2.children.push("@I1@".to_string());
+
+        tree.individuals.insert("@I1@".to_string(), i1);
+        tree.individuals.insert("@I2@".to_string(), i2);
+        tree.families.insert("@F1@".to_string(), f1);
+        tree.families.insert("@F2@".to_string(), f2);
+
+        let svg = render_svg(&tree);
+        assert!(svg.starts_with("<svg "), "should produce valid SVG");
+        assert!(svg.ends_with("</svg>\n"), "should close SVG element");
+        // Both individuals should appear exactly once.
+        assert_eq!(svg.matches("Alice Smith").count(), 1, "Alice should appear once");
+        assert_eq!(svg.matches("Bob Jones").count(), 1, "Bob should appear once");
+    }
+
+    /// A tree where every individual is part of a mutual cycle has no roots;
+    /// render_svg should return the empty-tree placeholder.
+    #[test]
+    fn test_svg_all_cyclic_no_roots() {
+        let mut tree = FamilyTree::new();
+
+        // Both I1 and I2 have family_as_child set, so neither is a root.
+        let mut i1 = Individual::new("@I1@".to_string());
+        i1.family_as_child.push("@F2@".to_string());
+        i1.family_as_spouse.push("@F1@".to_string());
+
+        let mut i2 = Individual::new("@I2@".to_string());
+        i2.family_as_child.push("@F1@".to_string());
+        i2.family_as_spouse.push("@F2@".to_string());
+
+        let mut f1 = Family::new("@F1@".to_string());
+        f1.husband = Some("@I1@".to_string());
+        f1.children.push("@I2@".to_string());
+
+        let mut f2 = Family::new("@F2@".to_string());
+        f2.husband = Some("@I2@".to_string());
+        f2.children.push("@I1@".to_string());
+
+        tree.individuals.insert("@I1@".to_string(), i1);
+        tree.individuals.insert("@I2@".to_string(), i2);
+        tree.families.insert("@F1@".to_string(), f1);
+        tree.families.insert("@F2@".to_string(), f2);
+
+        let svg = render_svg(&tree);
+        assert!(svg.contains("no individuals found"));
     }
 }

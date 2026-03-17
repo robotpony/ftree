@@ -130,19 +130,6 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 
 **Exit criteria:** New tags parsed from sample files. All renderers include new fields.
 
-## Phase 7: .inftree Binary Format
-
-**Goal:** Parse Family Historian .inftree files.
-
-**Deliverables:**
-
-1. .inftree format reverse-engineering / documentation
-2. Binary parser using `nom`
-3. Format auto-detection (GEDCOM vs .inftree based on file extension and magic bytes)
-4. Tests against .inftree sample files
-
-**Dependency:** Requires access to .inftree file format documentation or sample files for reverse engineering.
-
 ## Phase 8: SVG + HTML Output ✓
 
 **Status:** Complete (v0.8.0)
@@ -166,3 +153,5 @@ Phased approach to building ftree. Each phase produces a usable tool with increm
 - GUI application
 - Web server mode
 - LDS-specific records (SUBN, temple ordinances)
+- .inftree Binary Format
+

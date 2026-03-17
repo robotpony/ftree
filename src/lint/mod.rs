@@ -164,6 +164,11 @@ fn date_issue(message: String) -> LintWarning {
 // Rule: Date inconsistencies
 // ---------------------------------------------------------------------------
 
+/// Reasonable year bounds for a genealogical record.
+/// Years outside this range most likely indicate a data entry error.
+const YEAR_MIN: i32 = 1;
+const YEAR_MAX: i32 = 2100;
+
 fn check_date_inconsistencies(tree: &FamilyTree, out: &mut Vec<LintWarning>) {
     let mut xrefs: Vec<&String> = tree.individuals.keys().collect();
     xrefs.sort();
@@ -174,6 +179,18 @@ fn check_date_inconsistencies(tree: &FamilyTree, out: &mut Vec<LintWarning>) {
 
         let birth_year = indi.birth.as_ref().and_then(|e| e.date.as_ref()).and_then(|d| d.year);
         let death_year = indi.death.as_ref().and_then(|e| e.date.as_ref()).and_then(|d| d.year);
+
+        // Year range checks
+        for (label, year_opt) in [("birth", birth_year), ("death", death_year)] {
+            if let Some(y) = year_opt {
+                if !(YEAR_MIN..=YEAR_MAX).contains(&y) {
+                    out.push(date_issue(format!(
+                        "{} ({}): {} year {} is outside the expected range {}-{}",
+                        name, xref, label, y, YEAR_MIN, YEAR_MAX
+                    )));
+                }
+            }
+        }
 
         // Death before birth
         if let (Some(b), Some(d)) = (birth_year, death_year) {
@@ -497,6 +514,61 @@ mod tests {
         let categories: Vec<_> = warnings.iter().map(|w| &w.category).collect();
         assert!(categories.contains(&&LintCategory::DanglingReference));
         assert!(categories.contains(&&LintCategory::DateInconsistency));
+    }
+
+    #[test]
+    fn test_year_out_of_range_low() {
+        let mut tree = FamilyTree::new();
+        let mut indi = Individual::new("@I1@".to_string());
+        indi.name = Some(Name::from_gedcom("Ancient /Person/"));
+        indi.birth = Some(Event {
+            date: Some(Date::parse("0")),
+            place: None,
+        });
+        tree.individuals.insert("@I1@".to_string(), indi);
+
+        let warnings = lint(&tree);
+        assert!(
+            warnings.iter().any(|w| w.category == LintCategory::DateInconsistency
+                && w.message.contains("birth year 0")),
+            "Year 0 should produce a date inconsistency warning"
+        );
+    }
+
+    #[test]
+    fn test_year_out_of_range_high() {
+        let mut tree = FamilyTree::new();
+        let mut indi = Individual::new("@I1@".to_string());
+        indi.name = Some(Name::from_gedcom("Future /Person/"));
+        indi.death = Some(Event {
+            date: Some(Date::parse("9999")),
+            place: None,
+        });
+        tree.individuals.insert("@I1@".to_string(), indi);
+
+        let warnings = lint(&tree);
+        assert!(
+            warnings.iter().any(|w| w.category == LintCategory::DateInconsistency
+                && w.message.contains("death year 9999")),
+            "Year 9999 should produce a date inconsistency warning"
+        );
+    }
+
+    #[test]
+    fn test_year_at_boundary_ok() {
+        let mut tree = FamilyTree::new();
+        let mut indi = Individual::new("@I1@".to_string());
+        indi.name = Some(Name::from_gedcom("Edge /Case/"));
+        indi.birth = Some(Event { date: Some(Date::parse("1")), place: None });
+        indi.death = Some(Event { date: Some(Date::parse("2100")), place: None });
+        tree.individuals.insert("@I1@".to_string(), indi);
+
+        let warnings = lint(&tree);
+        let date_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.category == LintCategory::DateInconsistency)
+            .collect();
+        assert!(date_warnings.is_empty(), "Boundary years 1 and 2100 should be accepted");
     }
 
     #[test]

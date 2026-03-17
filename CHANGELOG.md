@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.7
+
+**Code quality pass based on full review:**
+
+- **New lint rule:** birth and death years outside 1–2100 now produce a `date` lint warning, catching common data-entry errors like year 0 or 9999.
+- **Parser:** unknown tags inside `FAM` records now emit parse warnings, matching the existing behaviour for `INDI` records. Previously they were silently discarded.
+- **SVG renderer:** added doc-comment explaining the visited-set cloning pattern in `place()` — why `measure()` uses a snapshot while placement mutates the real set.
+- **Robustness tests (13 new):**
+  - Parser: empty input, INDI without xref, unknown level-0 tag, deeply nested unknown structure, FAM with no members, duplicate NAME tag, unknown INDI tag emits warning.
+  - SVG: cycle where I1 → I2 → I1 does not infinite-loop; fully mutual cycle returns the empty-tree placeholder.
+  - Lint: year 0, year 9999, and boundary years 1/2100 behave correctly.
+- **Clippy:** resolved all `uninlined_format_args` warnings across the codebase (zero Clippy warnings).
+
 ## 0.8.6
 
 - **SVG text wrapping:** long names now wrap onto two lines inside their box instead of overflowing. Box dimensions increased from 200×68 to 220×80 to accommodate wrapped text.

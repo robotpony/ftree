@@ -31,7 +31,7 @@ pub fn build(tokens: &[Token]) -> FamilyTree {
             "FAM" => {
                 let end = find_record_end(tokens, i);
                 if let Some(ref xref) = token.xref {
-                    let fam = build_family(xref, &tokens[i..end]);
+                    let fam = build_family(xref, &tokens[i..end], &mut tree.warnings);
                     tree.families.insert(xref.clone(), fam);
                 }
                 i = end;
@@ -290,7 +290,7 @@ fn build_individual(
     indi
 }
 
-fn build_family(xref: &str, tokens: &[Token]) -> Family {
+fn build_family(xref: &str, tokens: &[Token], warnings: &mut Vec<ParseWarning>) -> Family {
     let mut fam = Family::new(xref.to_string());
 
     for (idx, token) in tokens.iter().enumerate() {
@@ -330,13 +330,18 @@ fn build_family(xref: &str, tokens: &[Token]) -> Family {
                 let note_ref = build_note_ref(tokens, idx);
                 fam.notes.push(note_ref);
             }
-            // Skip known but unhandled family tags
+            // Skip known but unhandled family tags silently
             "CHAN" | "REFN" | "RIN" | "SOUR" | "OBJE"
             | "DIVF" | "EVEN"
             | "NCHI" | "SUBM" | "RESN" | "RESI"
             | "MARB" | "MARC" | "MARL" | "MARS" | "CENS" => {}
-            tag if tag.starts_with('_') => {}
-            _ => {}
+            tag if tag.starts_with('_') => {} // extension tags
+            _ => {
+                warnings.push(ParseWarning {
+                    line: Some(token.line_number),
+                    message: format!("Unknown tag in FAM {}: {}", xref, token.tag),
+                });
+            }
         }
     }
 
@@ -1028,5 +1033,130 @@ mod tests {
         let fam = &tree.families["@F1@"];
         assert_eq!(fam.notes.len(), 1);
         assert_eq!(fam.notes[0].text, Some("Married in secret.".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // Malformed / edge-case input tests
+    // -----------------------------------------------------------------------
+
+    /// Completely empty input must not panic and should return an empty tree.
+    #[test]
+    fn test_empty_input_no_panic() {
+        let tokens = tokenize("");
+        let tree = build(&tokens);
+        assert_eq!(tree.individuals.len(), 0);
+        assert_eq!(tree.families.len(), 0);
+    }
+
+    /// Only a TRLR record — minimal valid GEDCOM skeleton.
+    #[test]
+    fn test_trlr_only_no_panic() {
+        let tokens = tokenize("0 TRLR");
+        let tree = build(&tokens);
+        assert_eq!(tree.individuals.len(), 0);
+    }
+
+    /// An INDI record missing its xref should be silently skipped.
+    #[test]
+    fn test_indi_without_xref_skipped() {
+        let input = "\
+0 INDI
+1 NAME No /Xref/
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+        assert_eq!(tree.individuals.len(), 0, "INDI without xref should be discarded");
+    }
+
+    /// An unknown level-0 tag should not crash the parser.
+    #[test]
+    fn test_unknown_level0_tag_no_panic() {
+        let input = "\
+0 HEAD
+1 CHAR UTF-8
+0 @X1@ UNKN
+1 DATA some value
+2 MORE nested
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens); // must not panic
+        assert_eq!(tree.individuals.len(), 0);
+    }
+
+    /// Tags with deeply nested unknown subtrees inside a known record should
+    /// not crash or corrupt other fields.
+    #[test]
+    fn test_deeply_nested_unknown_tags_no_panic() {
+        let input = "\
+0 @I1@ INDI
+1 NAME Alice /Wonder/
+1 UNKN top-level unknown
+2 DEEP nested
+3 DEEPER very nested
+4 DEEPEST bottom
+1 SEX F
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens); // must not panic
+
+        // The known fields should still be parsed correctly.
+        let indi = tree.individuals.get("@I1@").expect("@I1@ should exist");
+        assert_eq!(indi.name.as_ref().unwrap().full, "Alice Wonder");
+        assert_eq!(indi.sex, Some(Sex::Female));
+    }
+
+    /// A FAM record with no HUSB, WIFE, or CHIL is valid and should parse to
+    /// an empty family.
+    #[test]
+    fn test_fam_with_no_members() {
+        let input = "\
+0 @F1@ FAM
+1 MARR
+2 DATE 1 Jan 2000
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let fam = tree.families.get("@F1@").expect("@F1@ should exist");
+        assert!(fam.husband.is_none());
+        assert!(fam.wife.is_none());
+        assert!(fam.children.is_empty());
+        assert!(fam.marriage.is_some());
+    }
+
+    /// A NAME tag appearing twice: only the first should be stored.
+    #[test]
+    fn test_duplicate_name_takes_first() {
+        let input = "\
+0 @I1@ INDI
+1 NAME First /Name/
+1 NAME Second /Name/
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        let indi = &tree.individuals["@I1@"];
+        assert_eq!(indi.name.as_ref().unwrap().full, "First Name");
+    }
+
+    /// Unknown tags inside an INDI record must emit a parse warning.
+    #[test]
+    fn test_unknown_indi_tag_emits_warning() {
+        let input = "\
+0 @I1@ INDI
+1 NAME John /Doe/
+1 ZORK totally unknown tag
+0 TRLR";
+        let tokens = tokenize(input);
+        let tree = build(&tokens);
+
+        assert!(
+            !tree.warnings.is_empty(),
+            "Unknown INDI tag should emit a parse warning"
+        );
+        assert!(
+            tree.warnings.iter().any(|w| w.message.contains("ZORK")),
+            "Warning should mention the unknown tag name"
+        );
     }
 }
