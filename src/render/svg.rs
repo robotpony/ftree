@@ -305,7 +305,7 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     let roots = find_root_families(tree);
 
     if roots.is_empty() {
-        return r#"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40">
+        return r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" style="max-width: 100%; height: auto; display: block;">
   <text x="10" y="24" font-family="sans-serif" font-size="14">(no individuals found)</text>
 </svg>
 "#
@@ -315,16 +315,19 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     let mut all_boxes: Vec<SvgBox> = Vec::new();
     let mut all_lines: Vec<SvgLine> = Vec::new();
 
-    let mut offset_x = PADDING;
-    let start_y = PADDING;
+    let mut offset_y = PADDING;
     let mut visited: HashSet<String> = HashSet::new();
 
     for (i, root) in roots.iter().enumerate() {
         if i > 0 {
-            offset_x += H_GAP * 3.0;
+            offset_y += V_GAP;
         }
-        let w = place(&mut all_boxes, &mut all_lines, tree, root, offset_x, start_y, &mut visited);
-        offset_x += w;
+        let box_start = all_boxes.len();
+        place(&mut all_boxes, &mut all_lines, tree, root, PADDING, offset_y, &mut visited);
+        offset_y = all_boxes[box_start..]
+            .iter()
+            .map(|b| b.y + BOX_H)
+            .fold(offset_y, f32::max);
     }
 
     // Compute viewBox
@@ -345,7 +348,7 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     let mut out = String::new();
     let _ = writeln!(
         out,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" style="max-width: 100%; height: auto; display: block;">"#,
         width = width,
         height = height
     );

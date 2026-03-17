@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use ftree::render::Renderer;
 
 #[derive(Parser)]
-#[command(name = "ftree", about = "Read and convert GEDCOM genealogy files")]
+#[command(name = "ftree", about = "Read and convert GEDCOM genealogy files", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -30,6 +30,10 @@ enum Commands {
         /// Output path (directory for md, file for csv)
         #[arg(short, long)]
         output: Option<PathBuf>,
+
+        /// Embed the SVG family tree diagram in the HTML output
+        #[arg(long)]
+        embed_svg: bool,
     },
     /// View family tree as ASCII art in the terminal
     View {
@@ -71,6 +75,7 @@ fn main() -> Result<()> {
             file,
             format,
             output,
+            embed_svg,
         } => {
             let tree = load_tree(&file)?;
 
@@ -121,7 +126,7 @@ fn main() -> Result<()> {
                     let output_file = output.unwrap_or_else(|| {
                         file.with_extension("html")
                     });
-                    let renderer = ftree::render::html::HtmlRenderer;
+                    let renderer = ftree::render::html::HtmlRenderer { embed_svg };
                     renderer
                         .render(&tree, &output_file)
                         .with_context(|| format!("Failed to export to {}", output_file.display()))?;

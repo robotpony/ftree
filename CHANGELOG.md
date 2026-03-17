@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.3
+
+- SVG export now stacks disconnected family groups vertically instead of horizontally, producing a taller, narrower diagram that fits browser viewports more naturally.
+
+## 0.8.2
+
+- `ftree export --format html --embed-svg` embeds the SVG family tree diagram at the top of the HTML page.
+- SVG output now uses `style="max-width: 100%; height: auto;"` instead of fixed pixel dimensions, so it scales correctly in browsers.
+
+## 0.8.1
+
+- `ftree --version` now prints the version string.
+
 ## 0.8.0 — Phase 8: SVG + HTML Output
 
 Two new visual export formats.

@@ -4,16 +4,20 @@ use std::path::Path;
 
 use crate::model::{FamilyTree, Individual, NoteRef, Sex};
 use crate::render::{RenderError, Renderer};
+use crate::render::svg::render_svg;
 
 /// Standalone HTML family tree viewer renderer.
 ///
 /// Generates a single HTML file with embedded CSS (light/dark theme support)
 /// and JavaScript for filtering. Includes a summary table and individual detail sections.
-pub struct HtmlRenderer;
+pub struct HtmlRenderer {
+    /// When true, the SVG family tree diagram is embedded at the top of the page.
+    pub embed_svg: bool,
+}
 
 impl Renderer for HtmlRenderer {
     fn render(&self, tree: &FamilyTree, output: &Path) -> Result<(), RenderError> {
-        let content = render_html(tree);
+        let content = render_html(tree, self.embed_svg);
         if let Some(parent) = output.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -23,7 +27,7 @@ impl Renderer for HtmlRenderer {
 }
 
 /// Generate the full HTML document.
-pub fn render_html(tree: &FamilyTree) -> String {
+pub fn render_html(tree: &FamilyTree, embed_svg: bool) -> String {
     let mut out = String::new();
 
     // Sort individuals by name for deterministic output
@@ -49,6 +53,17 @@ pub fn render_html(tree: &FamilyTree) -> String {
         tree.individuals.len(),
         tree.families.len()
     );
+
+    // Embedded SVG diagram (optional)
+    if embed_svg {
+        let svg = render_svg(tree);
+        out.push_str("  <section class=\"svg-section\">\n");
+        out.push_str("    <h2>Family Tree Diagram</h2>\n");
+        out.push_str("    <div class=\"svg-container\">\n");
+        out.push_str(&svg);
+        out.push_str("    </div>\n");
+        out.push_str("  </section>\n");
+    }
 
     // Search bar
     out.push_str(r#"  <div class="search-bar">
@@ -442,6 +457,19 @@ const CSS: &str = r#"  <style>
     .label { font-weight: 600; color: var(--text-muted); margin-right: 4px; }
     .notes p { font-size: 13px; color: var(--text); line-height: 1.6; }
 
+    /* SVG diagram section */
+    .svg-section { margin-bottom: 40px; }
+    .svg-section h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+    .svg-container {
+      overflow-x: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .svg-container svg { max-width: 100%; height: auto; display: block; }
+
     /* Hidden rows (search) */
     tr.hidden { display: none; }
   </style>
@@ -513,7 +541,7 @@ mod tests {
     #[test]
     fn test_html_is_valid_document() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("<html lang=\"en\">"));
@@ -524,7 +552,7 @@ mod tests {
     #[test]
     fn test_html_contains_names() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("John Smith"));
         assert!(html.contains("Jane Doe"));
@@ -534,7 +562,7 @@ mod tests {
     #[test]
     fn test_html_contains_dates() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("1 Jan 1900"));
         assert!(html.contains("31 Dec 1980"));
@@ -543,7 +571,7 @@ mod tests {
     #[test]
     fn test_html_contains_occupation() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("Engineer"));
     }
@@ -551,7 +579,7 @@ mod tests {
     #[test]
     fn test_html_contains_marriage() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("25 Dec 1925"));
     }
@@ -559,7 +587,7 @@ mod tests {
     #[test]
     fn test_html_has_anchors_for_individuals() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         // Each individual should have an anchor id
         assert!(html.contains("id=\"I1\"") || html.contains("id=\"I1_\""));
@@ -568,7 +596,7 @@ mod tests {
     #[test]
     fn test_html_has_links_between_relatives() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         // Parent links should reference correct anchors
         assert!(html.contains("href=\"#I1\"") || html.contains("href=\"#"));
@@ -583,7 +611,7 @@ mod tests {
     #[test]
     fn test_html_empty_tree() {
         let tree = FamilyTree::new();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("0 individuals"));
@@ -592,7 +620,7 @@ mod tests {
     #[test]
     fn test_html_has_search_input() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("<input"));
         assert!(html.contains("filterTable"));
@@ -601,7 +629,7 @@ mod tests {
     #[test]
     fn test_html_has_dark_mode_css() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("prefers-color-scheme: dark"));
     }
@@ -615,7 +643,7 @@ mod tests {
     #[test]
     fn test_html_contains_stats() {
         let tree = make_test_tree();
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
 
         assert!(html.contains("3 individuals"));
         assert!(html.contains("1 families") || html.contains("1 famil"));
@@ -629,7 +657,18 @@ mod tests {
             xref: None,
         });
 
-        let html = render_html(&tree);
+        let html = render_html(&tree, false);
         assert!(html.contains("A notable person."));
+    }
+
+    #[test]
+    fn test_html_embed_svg() {
+        let tree = make_test_tree();
+        let html_no_svg = render_html(&tree, false);
+        let html_with_svg = render_html(&tree, true);
+
+        assert!(!html_no_svg.contains("<section class=\"svg-section\""), "no SVG section without flag");
+        assert!(html_with_svg.contains("<section class=\"svg-section\""), "SVG section present with flag");
+        assert!(html_with_svg.contains("<svg "), "SVG element embedded");
     }
 }

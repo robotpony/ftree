@@ -48,6 +48,7 @@ Export family tree to Markdown, CSV, SVG, or HTML.
 
 - `--format md|csv|svg|html` — Output format (default: md)
 - `--output`, `-o` — Output path (directory for md, file for all others)
+- `--embed-svg` — (HTML only) Embed the SVG family tree diagram at the top of the page
 
 ```bash
 # Export to Markdown (one file per person)
@@ -63,6 +64,9 @@ ftree export myfile.ged --format svg
 
 # Export to HTML (standalone viewer with search and dark mode)
 ftree export myfile.ged --format html
+
+# Export to HTML with embedded SVG diagram
+ftree export myfile.ged --format html --embed-svg
 ```
 
 #### `ftree list <filename> <field>`
