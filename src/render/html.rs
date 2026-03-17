@@ -468,7 +468,7 @@ const CSS: &str = r#"  <style>
       padding: 16px;
       box-shadow: var(--shadow);
     }
-    .svg-container svg { max-width: 100%; height: auto; display: block; }
+    .svg-container svg { display: block; }
 
     /* Hidden rows (search) */
     tr.hidden { display: none; }

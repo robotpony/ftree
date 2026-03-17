@@ -8,11 +8,18 @@ use crate::render::{RenderError, Renderer};
 use crate::render::ascii::find_root_families;
 
 // Layout constants
-const BOX_W: f32 = 200.0;
-const BOX_H: f32 = 68.0;
+const BOX_W: f32 = 220.0;
+const BOX_H: f32 = 80.0;
 const H_GAP: f32 = 24.0;   // gap between sibling subtrees and between couple boxes
 const V_GAP: f32 = 80.0;   // vertical gap between generation rows
 const PADDING: f32 = 24.0; // canvas edge padding
+
+// Approximate character width (px) for 13 px bold sans-serif, used for text wrapping.
+const CHAR_WIDTH: f32 = 7.5;
+// Horizontal padding inside a box (each side).
+const TEXT_PAD: f32 = 10.0;
+// Maximum characters per name line before wrapping.
+const MAX_NAME_CHARS: usize = ((BOX_W - 2.0 * TEXT_PAD) / CHAR_WIDTH) as usize;
 
 /// SVG family tree renderer.
 pub struct SvgRenderer;
@@ -176,21 +183,27 @@ fn place(
     // Place person box
     boxes.push(make_box(tree, xref, couple_x, y));
 
-    // Place spouse box + couple connector
+    // Place spouse box + couple connector.
+    // Only draw the connector when the spouse is actually placed here; a spouse
+    // that was already placed elsewhere in the tree has different coordinates,
+    // so drawing a line to the adjacent position would produce a dangling connector.
     let couple_center_x = if let Some(ref sx) = spouse_xref {
         let spouse_x = couple_x + BOX_W + H_GAP;
         if !visited.contains(sx) {
             boxes.push(make_box(tree, sx, spouse_x, y));
             visited.insert(sx.to_string());
+            // Couple connector (horizontal line between the two boxes)
+            lines.push(SvgLine {
+                x1: couple_x + BOX_W,
+                y1: y + BOX_H / 2.0,
+                x2: spouse_x,
+                y2: y + BOX_H / 2.0,
+            });
+            couple_x + BOX_W + H_GAP / 2.0
+        } else {
+            // Spouse already placed elsewhere; centre the drop over this box only.
+            couple_x + BOX_W / 2.0
         }
-        // Couple connector (horizontal line between the two boxes)
-        lines.push(SvgLine {
-            x1: couple_x + BOX_W,
-            y1: y + BOX_H / 2.0,
-            x2: spouse_x,
-            y2: y + BOX_H / 2.0,
-        });
-        couple_x + BOX_W + H_GAP / 2.0
     } else {
         couple_x + BOX_W / 2.0
     };
@@ -255,6 +268,30 @@ fn place(
     total_width
 }
 
+/// Split a name into at most two lines, breaking at a word boundary before `max_chars`.
+fn wrap_text(text: &str, max_chars: usize) -> (String, Option<String>) {
+    if text.chars().count() <= max_chars {
+        return (text.to_string(), None);
+    }
+    // Walk words, accumulating line 1 until adding the next word would exceed max_chars.
+    let mut line1 = String::new();
+    let mut words = text.split_whitespace();
+    for word in words.by_ref() {
+        let candidate = if line1.is_empty() {
+            word.to_string()
+        } else {
+            format!("{} {}", line1, word)
+        };
+        if candidate.chars().count() > max_chars && !line1.is_empty() {
+            // Collect the rest as line 2
+            let rest = format!("{} {}", word, words.collect::<Vec<_>>().join(" "));
+            return (line1, Some(rest.trim().to_string()));
+        }
+        line1 = candidate;
+    }
+    (line1, None)
+}
+
 fn make_box(tree: &FamilyTree, xref: &str, x: f32, y: f32) -> SvgBox {
     let indi = tree.individuals.get(xref);
     let name = indi
@@ -305,7 +342,7 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     let roots = find_root_families(tree);
 
     if roots.is_empty() {
-        return r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" style="max-width: 100%; height: auto; display: block;">
+        return r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" width="200" height="40" style="display: block;">
   <text x="10" y="24" font-family="sans-serif" font-size="14">(no individuals found)</text>
 </svg>
 "#
@@ -348,7 +385,7 @@ pub fn render_svg(tree: &FamilyTree) -> String {
     let mut out = String::new();
     let _ = writeln!(
         out,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" style="max-width: 100%; height: auto; display: block;">"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" style="display: block;">"#,
         width = width,
         height = height
     );
@@ -386,7 +423,6 @@ pub fn render_svg(tree: &FamilyTree) -> String {
             _ => "box-unknown",
         };
 
-        let name_escaped = xml_escape(&b.name);
         let dates_escaped = xml_escape(&b.dates);
         let anchor_id = b.xref.replace('@', "");
 
@@ -399,22 +435,36 @@ pub fn render_svg(tree: &FamilyTree) -> String {
             b.x, b.y
         );
 
-        // Name text (centered, upper half)
+        // Name text — wrap long names onto two lines using separate <text> elements.
         let text_x = b.x + BOX_W / 2.0;
-        let name_y = if b.dates.is_empty() {
-            b.y + BOX_H / 2.0 + 5.0
-        } else {
-            b.y + BOX_H / 2.0 - 5.0
+        let (line1, line2) = wrap_text(&b.name, MAX_NAME_CHARS);
+        let has_dates = !b.dates.is_empty();
+        let has_two_lines = line2.is_some();
+
+        // Vertical positioning: distribute name line(s) and optional dates evenly.
+        let name_y1 = match (has_two_lines, has_dates) {
+            (false, false) => b.y + BOX_H / 2.0 + 5.0,
+            (false, true)  => b.y + BOX_H / 2.0 - 7.0,
+            (true,  false) => b.y + BOX_H / 2.0 - 4.0,
+            (true,  true)  => b.y + BOX_H / 2.0 - 14.0,
         };
+
         let _ = writeln!(
             out,
             r#"    <text class="name" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
-            text_x, name_y, name_escaped
+            text_x, name_y1, xml_escape(&line1)
         );
+        if let Some(ref l2) = line2 {
+            let _ = writeln!(
+                out,
+                r#"    <text class="name" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
+                text_x, name_y1 + 16.0, xml_escape(l2)
+            );
+        }
 
-        // Dates text (centered, lower half)
-        if !b.dates.is_empty() {
-            let dates_y = b.y + BOX_H / 2.0 + 14.0;
+        // Dates text (centered, lower portion)
+        if has_dates {
+            let dates_y = b.y + BOX_H - 12.0;
             let _ = writeln!(
                 out,
                 r#"    <text class="dates" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,

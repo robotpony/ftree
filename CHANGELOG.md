@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.6
+
+- **SVG text wrapping:** long names now wrap onto two lines inside their box instead of overflowing. Box dimensions increased from 200×68 to 220×80 to accommodate wrapped text.
+- **Fix dangling couple connector:** the horizontal line between spouses is no longer drawn when the spouse was already placed elsewhere in the tree, eliminating lines that pointed to empty space.
+
+## 0.8.5
+
+- SVG embedded in HTML (`--embed-svg`) now renders at its natural pixel size with horizontal scrolling, instead of scaling down to fit the container. Names and dates are now legible regardless of tree size.
+
 ## 0.8.4
 
 - **SVG line alignment fix:** child subtree widths and the `children_total` used for centering are now computed from a single consistent measurement pass, preventing connector bars and drop lines from misaligning with boxes in trees with shared individuals.
