@@ -11,20 +11,11 @@ Dependency choices for the ftree project, with rationale.
 | `anyhow` | CLI error handling | Used only in `main.rs`. Wraps library errors for clean CLI output with context. |
 | `encoding_rs` | Character encoding | Handles UTF-16 LE/BE decoding and ANSEL (future). Needed for the 555SAMPLE16LE.GED and similar files. |
 
-## Output Dependencies
-
-| Crate | Purpose | Why this one |
-|-------|---------|-------------|
-| `serde` + `serde_yaml` | YAML front-matter | Serialize Individual metadata to YAML for Markdown front-matter. serde is the standard. |
-| `csv` | CSV export | The standard Rust CSV writer. Handles quoting and escaping. |
-
 ## Future / Optional
 
 | Crate | Purpose | When |
 |-------|---------|------|
-| `svg` | SVG generation | When SVG renderer is implemented. Clean builder API for SVG elements. |
 | `nom` | Binary parsing | For the .inftree binary format parser. Combinator-based parsing is well-suited to binary formats. |
-| `tera` or `askama` | HTML templating | When HTML renderer is implemented. `askama` for compile-time templates, `tera` for runtime flexibility. |
 
 ## Rejected Alternatives
 

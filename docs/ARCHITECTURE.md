@@ -66,7 +66,7 @@ ftree is a Rust CLI tool and library for reading genealogy files (GEDCOM, .inftr
 
 **Context:** Family trees vary in shape. Deep lineages suit top-down. Wide families suit left-to-right.
 
-**Decision:** Support both top-down and left-to-right ASCII layouts, selectable via `--layout` flag (default: top-down).
+**Decision:** Support both top-down and left-to-right ASCII layouts, selectable via `--layout` flag (default: horizontal).
 
 ## Module Structure
 
@@ -99,8 +99,8 @@ src/
     │   ├── mod.rs            # ASCII renderer entry
     │   ├── topdown.rs        # Top-down tree layout
     │   └── horizontal.rs     # Left-to-right tree layout
-    ├── svg.rs                # SVG renderer (future)
-    └── html.rs               # HTML renderer (future)
+    ├── svg.rs                # SVG renderer
+    └── html.rs               # HTML renderer
 ```
 
 ## Core Types
@@ -122,14 +122,23 @@ pub struct FamilyTree {
 
 ```rust
 pub struct Individual {
-    pub xref: String,           // "@I1@"
+    pub xref: String,                    // "@I1@"
     pub name: Option<Name>,
     pub sex: Option<Sex>,
     pub birth: Option<Event>,
     pub death: Option<Event>,
-    pub family_as_spouse: Vec<String>,  // xrefs to FAM records
-    pub family_as_child: Vec<String>,   // xrefs to FAM records
+    pub burial: Option<Event>,
+    pub christening: Option<Event>,
+    pub adoption: Option<Event>,
+    pub residence: Option<Event>,
+    pub occupation: Option<String>,
+    pub education: Option<String>,
+    pub title: Option<String>,
+    pub family_as_spouse: Vec<String>,   // xrefs to FAM records
+    pub family_as_child: Vec<String>,    // xrefs to FAM records
     pub media: Vec<MediaRef>,
+    pub source_citations: Vec<SourceCitation>,
+    pub notes: Vec<NoteRef>,
 }
 ```
 
@@ -137,11 +146,15 @@ pub struct Individual {
 
 ```rust
 pub struct Family {
-    pub xref: String,           // "@F1@"
-    pub husband: Option<String>, // xref to INDI
-    pub wife: Option<String>,    // xref to INDI
-    pub children: Vec<String>,   // xrefs to INDI
+    pub xref: String,             // "@F1@"
+    pub husband: Option<String>,  // xref to INDI
+    pub wife: Option<String>,     // xref to INDI
+    pub children: Vec<String>,    // xrefs to INDI
     pub marriage: Option<Event>,
+    pub divorce: Option<Event>,
+    pub engagement: Option<Event>,
+    pub annulment: Option<Event>,
+    pub notes: Vec<NoteRef>,
 }
 ```
 
@@ -180,7 +193,8 @@ pub trait Renderer {
    - **Markdown:** iterate individuals, write one `.md` per person with YAML front-matter and wikilinks
    - **CSV:** flatten individuals to rows with columns for name, birth date/place, death date/place, etc.
    - **ASCII:** walk the tree from root ancestors, render with box-drawing characters
-   - **SVG/HTML:** (future) generate styled visual output
+   - **SVG:** walk the tree from root ancestors, render boxes with birth/death years and connector lines
+   - **HTML:** standalone page with embedded CSS; summary table with live search; individual detail cards with inter-individual hyperlinks
 
 ## Dependencies
 

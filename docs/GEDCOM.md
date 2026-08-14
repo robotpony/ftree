@@ -138,9 +138,9 @@ A GEDCOM file MUST begin with a HEAD record and end with a TRLR record. All othe
 | INDI | Supported |
 | FAM | Supported |
 | SUBM | Supported |
-| SOUR | Planned |
-| NOTE | Planned |
-| REPO | Planned |
+| SOUR | Supported |
+| NOTE | Supported |
+| REPO | Supported |
 | OBJE | Supported (partial) |
 | SUBN | Not applicable |
 
@@ -255,11 +255,11 @@ All individual events accept the `[Y|<NULL>]` value. When `Y` is present without
 | Tag | Name | Description | ftree |
 |-----|------|-------------|-------|
 | `BIRT` | Birth | Entering into life. Accepts FAMC substructure. | Supported |
-| `CHR` | Christening | Baptism/naming of a child. Accepts FAMC. | Planned |
+| `CHR` | Christening | Baptism/naming of a child. Accepts FAMC. | Supported |
 | `DEAT` | Death | End of mortal life. | Supported |
-| `BURI` | Burial | Disposal of mortal remains. | Planned |
+| `BURI` | Burial | Disposal of mortal remains. | Supported |
 | `CREM` | Cremation | Disposal of remains by fire. | Planned |
-| `ADOP` | Adoption | Legal parent-child relationship. Accepts FAMC with ADOP detail. | Planned |
+| `ADOP` | Adoption | Legal parent-child relationship. Accepts FAMC with ADOP detail. | Supported |
 | `BAPM` | Baptism | Religious baptism (not LDS). | Planned |
 | `BARM` | Bar Mitzvah | Jewish coming of age (male). | Ignored |
 | `BASM` | Bas Mitzvah | Jewish coming of age (female). | Ignored |
@@ -286,17 +286,17 @@ Attributes describe characteristics rather than events. Each accepts the Event D
 |-----|------|-------|-------|
 | `CAST` | Caste | `<CASTE_NAME>` | Planned |
 | `DSCR` | Description | `<PHYSICAL_DESCRIPTION>` | Ignored |
-| `EDUC` | Education | `<SCHOLASTIC_ACHIEVEMENT>` | Planned |
+| `EDUC` | Education | `<SCHOLASTIC_ACHIEVEMENT>` | Supported |
 | `IDNO` | ID Number | `<ID_NUMBER>` (requires TYPE) | Ignored |
 | `NATI` | Nationality | `<NATIONAL_ORIGIN>` | Planned |
 | `NCHI` | Children Count | `<COUNT>` | Ignored |
 | `NMR` | Marriage Count | `<COUNT>` | Ignored |
-| `OCCU` | Occupation | `<OCCUPATION>` | Planned |
+| `OCCU` | Occupation | `<OCCUPATION>` | Supported |
 | `PROP` | Property | `<POSSESSIONS>` | Ignored |
 | `RELI` | Religion | `<RELIGIOUS_AFFILIATION>` | Planned |
-| `RESI` | Residence | (no value; uses event detail) | Planned |
+| `RESI` | Residence | (no value; uses event detail) | Supported |
 | `SSN` | Social Security | `<SSN>` | Ignored |
-| `TITL` | Title | `<TITLE>` | Planned |
+| `TITL` | Title | `<TITLE>` | Supported |
 | `FACT` | Fact | `<TEXT>` (5.5.1; requires TYPE) | Ignored |
 
 ### 4.4 Family Links
@@ -353,11 +353,11 @@ All family events accept `[Y|<NULL>]` and support HUSB/WIFE AGE substructures:
 
 | Tag | Name | Description | ftree |
 |-----|------|-------------|-------|
-| `ANUL` | Annulment | Declaring marriage void. | Planned |
+| `ANUL` | Annulment | Declaring marriage void. | Supported |
 | `CENS` | Census | Census record for the family. | Ignored |
-| `DIV` | Divorce | Dissolving marriage. | Planned |
+| `DIV` | Divorce | Dissolving marriage. | Supported |
 | `DIVF` | Divorce Filed | Filing for divorce. | Ignored |
-| `ENGA` | Engagement | Agreement to marry. | Planned |
+| `ENGA` | Engagement | Agreement to marry. | Supported |
 | `MARB` | Marriage Bann | Public notice of intent to marry. | Ignored |
 | `MARC` | Marriage Contract | Formal marriage agreement. | Ignored |
 | `MARL` | Marriage License | Obtaining legal license. | Ignored |
@@ -448,7 +448,7 @@ Inline source description without a separate record:
     +1 <<NOTE_STRUCTURE>>                        {0:M}
 ```
 
-**ftree status:** Planned. Source citations appear in real-world files (the 555SAMPLE file references `@S1@` with PAGE details) and SHOULD be supported for completeness.
+**ftree status:** Supported (TITL, AUTH, PUBL, ABBR, TEXT, REPO pointer; inline citations with PAGE and QUAY).
 
 ## 7. Event Detail Substructure
 
@@ -735,7 +735,7 @@ This is a common extension, not part of the official specification.
   1 <<CHANGE_DATE>>                              {0:1}
 ```
 
-**ftree status:** Planned.
+**ftree status:** Supported (NAME).
 
 ### 12.2 Submitter Record (SUBM)
 
@@ -766,7 +766,7 @@ This is a common extension, not part of the official specification.
 
 Note records carry their text as the value of the level 0 line, continued with CONT/CONC.
 
-**ftree status:** Planned.
+**ftree status:** Supported (text via CONT/CONC).
 
 ### 12.4 Note Structure (Inline)
 
